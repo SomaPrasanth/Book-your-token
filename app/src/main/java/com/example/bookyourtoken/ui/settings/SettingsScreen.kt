@@ -113,7 +113,7 @@ fun SettingsScreen(
             SettingsCard {
                 SettingsRow(
                     title = "Daily reminder",
-                    subtitle = "Every day at ${formatTime(state.reminderHour, state.reminderMinute)}",
+                    subtitle = "Tap to change",
                     leading = { Icon(painterResource(R.drawable.ic_schedule), contentDescription = null) },
                     trailing = {
                         Text(

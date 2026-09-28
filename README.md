@@ -5,8 +5,10 @@ A small Android app that reminds PSG Tech hostel students to book tomorrow's foo
 > **Unofficial.** Not affiliated with or endorsed by PSG College of Technology. It signs in to the hostel portal with *your own* account, exactly like the website does.
 
 <p align="center">
-  <img src="docs/screenshots/select.png" width="260" alt="Tomorrow's tokens, with one item selected">
-  <img src="docs/screenshots/confirm.png" width="260" alt="Confirming a booking">
+  <img src="docs/screenshots/tokens.png" width="200" alt="Tomorrow's tokens">
+  <img src="docs/screenshots/select.png" width="200" alt="Selecting an item">
+  <img src="docs/screenshots/confirm.png" width="200" alt="Confirming a booking">
+  <img src="docs/screenshots/mytokens.png" width="200" alt="My tokens">
 </p>
 
 ## Features
@@ -15,11 +17,13 @@ A small Android app that reminds PSG Tech hostel students to book tomorrow's foo
 - **Tomorrow's menu at a glance** — every item on offer for tomorrow, with price, available meals and anything you've already booked.
 - **Quick booking** — tap items, pick the meal and quantity (capped at the portal's limit), review the total, confirm.
 - **Clear results** — each item shows the portal's own response ("Token Booked", "Token apply time has expired", …).
+- **My tokens** — everything you've booked, grouped by date, with a Cancel button for tokens that haven't been used yet.
 - **Skip when already booked** — optionally no reminder on days you've already booked.
 
 ## Safety rules the app follows
 
 - **Nothing is ever booked without you tapping _Book now_.** No auto-booking, no booking from the notification.
+- **Nothing is cancelled without a confirmation** that names the exact token, meal, date and quantity. "Cancel all" is a separate, clearly-labelled action with its own warning.
 - **Credentials stay on your phone**, in `EncryptedSharedPreferences`. The password is only ever sent in the portal's own login request — never logged or sent anywhere else.
 - **Gentle on the portal**: one background check per day, bookings sent one at a time, no polling.
 - **No blind retries**: if a booking request times out, the app re-reads your bookings to see whether it registered before telling you anything.
@@ -34,7 +38,11 @@ There's no public API, so the app does what the website does, using the same end
 | 2 | `POST /Hostel/Login/Authenticate` | Sign in (roll number **must be uppercase**) |
 | 3 | `GET /Hostel/Student/StudentView` | The booking page — parsed with Jsoup for items, dates and meals |
 | 4 | `POST /Hostel/Student/StudentGetToken` | Tokens you've already booked (JSON) |
-| 5 | `POST /Hostel/Student/newStudentTokenApply` | Book one item |
+| 5 | `POST /Hostel/Student/newStudentTokenApply` | Book one item (success: `oresult == 1`) |
+| 6 | `POST /Hostel/Student/StudentTokenCancel` | Cancel **one** unit — verified: quantity 2 → 1 (success: `oresult == 0`) |
+| 7 | `POST /Hostel/Student/StudentTokenBulkCancel` | The site's "Cancel All" — same payload; verified on a quantity-1 token, behaviour for larger quantities unverified |
+
+The cancel endpoints identify a token by roll number + name + date + meal, using field names that don't match their contents (the site's JavaScript reads them from table columns by position): `ISSUE_DATE` carries the **token name** and `TOKEN_ID` carries the **date**. See `HostelClient.cancelFormFields` — it's covered by a unit test so nobody "fixes" it.
 
 Two things learned the hard way:
 
@@ -51,7 +59,7 @@ Requirements: a recent Android Studio with Android SDK Platform 37 installed (th
 git clone <your-fork-url>
 cd book-your-token
 ./gradlew assembleDebug          # APK in app/build/outputs/apk/debug/
-./gradlew testDebugUnitTest      # parser, formatting and selection tests
+./gradlew testDebugUnitTest      # parser, cancel-request, formatting and selection tests
 ```
 
 Or open the folder in Android Studio and press **Run**.
@@ -73,6 +81,7 @@ app/src/main/java/com/example/bookyourtoken/
 │   ├── setup/                 Sign-in screen
 │   ├── tokens/                Main screen, selection logic, ViewModel
 │   ├── booking/               Booking progress dialog
+│   ├── mytokens/              Booked tokens list and cancelling
 │   ├── settings/              Settings screen
 │   ├── common/                Shared components and formatting
 │   └── theme/                 Colours and typography
