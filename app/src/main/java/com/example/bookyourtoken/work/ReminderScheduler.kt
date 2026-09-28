@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.example.bookyourtoken.data.AppPreferences
+import com.example.bookyourtoken.appContainer
 import java.time.Duration
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -19,7 +19,7 @@ object ReminderScheduler {
     private const val CHECK_NOW_WORK_NAME = "daily_token_reminder_now"
 
     fun schedule(context: Context) {
-        val prefs = AppPreferences(context)
+        val prefs = context.appContainer.preferences
         val delayMillis = computeInitialDelayMillis(prefs.reminderHour, prefs.reminderMinute)
         val request = OneTimeWorkRequestBuilder<ReminderWorker>()
             .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)

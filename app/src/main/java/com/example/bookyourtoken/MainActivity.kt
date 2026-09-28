@@ -9,8 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.example.bookyourtoken.ui.AppNavHost
-import com.example.bookyourtoken.ui.theme.HostelTheme
+import com.example.bookyourtoken.ui.App
 
 class MainActivity : ComponentActivity() {
 
@@ -29,10 +28,9 @@ class MainActivity : ComponentActivity() {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        val container = appContainer
         setContent {
-            HostelTheme {
-                AppNavHost()
-            }
+            App(container)
         }
     }
 }
