@@ -1,0 +1,34 @@
+# Gradle / build output
+.gradle
+/build
+.kotlin/
+.externalNativeBuild
+.cxx
+/captures
+
+# Local machine config (contains the SDK path)
+local.properties
+
+# Android Studio / IntelliJ
+*.iml
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+
+# Signing keys and built artifacts — never commit these
+*.jks
+*.keystore
+*.apk
+*.aab
+/app/release/
+
+# Claude Code per-machine state
+.claude/settings.local.json
+.claude/*.lock
+
+# OS
+.DS_Store
+Thumbs.db
