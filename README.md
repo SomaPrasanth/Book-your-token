@@ -1,6 +1,8 @@
 # Book your token
 
-A small Android app that reminds PSG Tech hostel students to book tomorrow's food tokens and lets them book in a couple of taps — without opening the portal in a browser.
+A small Android and iOS app that reminds PSG Tech hostel students to book tomorrow's food tokens and lets them book in a couple of taps — without opening the portal in a browser.
+
+Built with Kotlin Multiplatform: the portal client, parsing, booking/cancel logic **and the whole UI** (Compose Multiplatform) are shared, so both apps behave identically.
 
 > **Unofficial.** Not affiliated with or endorsed by PSG College of Technology. It signs in to the hostel portal with *your own* account, exactly like the website does.
 
@@ -20,13 +22,25 @@ A small Android app that reminds PSG Tech hostel students to book tomorrow's foo
 - **My tokens** — everything you've booked, grouped by date, with a Cancel button for tokens that haven't been used yet.
 - **Skip when already booked** — optionally no reminder on days you've already booked.
 
+### Android vs iOS
+
+Everything above works the same on both, except the daily reminder:
+
+| | Android | iOS |
+|---|---|---|
+| Reminder | Background job signs in and checks the portal, then notifies ("2 items available for 29-09-2026") | Plain local notification at your chosen time ("Tap to see what's available tomorrow") — iOS doesn't allow reliable background jobs at a set time |
+| Skip if already booked | Checked in the background every day | Skipped once the app has seen tomorrow is booked (e.g. after you book) |
+| Planning | Reschedules itself daily | Planned two weeks ahead and topped up every time you open the app |
+| Check now | Background check → notification | Same check, run while the app is open → notification |
+| Credentials | `EncryptedSharedPreferences` | iOS Keychain |
+
 ## Safety rules the app follows
 
 - **Nothing is ever booked without you tapping _Book now_.** No auto-booking, no booking from the notification.
 - **Nothing is cancelled without a confirmation** that names the exact token, meal, date and quantity. "Cancel all" is a separate, clearly-labelled action with its own warning.
-- **Credentials stay on your phone**, in `EncryptedSharedPreferences`. The password is only ever sent in the portal's own login request — never logged or sent anywhere else.
+- **Credentials stay on your phone**, in `EncryptedSharedPreferences` (Android) or the Keychain (iOS). The password is only ever sent in the portal's own login request — never logged or sent anywhere else.
 - **Gentle on the portal**: one background check per day, bookings sent one at a time, no polling.
-- **No blind retries**: if a booking request times out, the app re-reads your bookings to see whether it registered before telling you anything.
+- **No blind retries**: if a booking or cancel request gets no response, the app re-reads your bookings to see whether it registered before telling you anything, and never resends it for you.
 
 ## How it talks to the portal
 
@@ -49,47 +63,73 @@ Two things learned the hard way:
 - **The login expires after 10 minutes** and can't be refreshed, so the app signs in fresh for every operation instead of keeping a session around.
 - **Booking only works in a session that has already loaded steps 3 and 4.** The portal appears to set up per-session state (your balance, mess id) when those pages load; skipping them makes every booking fail with "The remaining balance is required to be paid." even when your balance is fine.
 
-Item IDs and quantity limits aren't in the page HTML — they come from the site's JavaScript and are kept in [`TokenPageParser.kt`](app/src/main/java/com/example/bookyourtoken/data/TokenPageParser.kt). If the portal changes, that parser is the first place to look; the app shows a "portal may have changed" error with a link to book in the browser instead of an empty list.
+Item IDs and quantity limits aren't in the page HTML — they come from the site's JavaScript and are kept in [`TokenPageParser.kt`](shared/src/commonMain/kotlin/com/example/bookyourtoken/data/TokenPageParser.kt). If the portal changes, that parser is the first place to look; the app shows a "portal may have changed" error with a link to book in the browser instead of an empty list.
 
 ## Building
 
-Requirements: a recent Android Studio with Android SDK Platform 37 installed (the project uses AGP 9.4 / Gradle 9.6; minSdk 26).
+### Android
+
+Requirements: a recent Android Studio with Android SDK Platform 37 installed (AGP 9.4 / Gradle 9.6 / Kotlin 2.3; minSdk 26). Works on Windows, macOS and Linux.
 
 ```bash
 git clone <your-fork-url>
 cd book-your-token
-./gradlew assembleDebug          # APK in app/build/outputs/apk/debug/
-./gradlew testDebugUnitTest      # parser, cancel-request, formatting and selection tests
+./gradlew :app:assembleDebug            # APK in app/build/outputs/apk/debug/
+./gradlew :shared:testAndroidHostTest   # parser, portal-response, cancel-request, date, formatting and selection tests
 ```
 
 Or open the folder in Android Studio and press **Run**.
 
-On first launch, sign in with your hostel portal roll number and password, pick a reminder time, and allow notifications.
+### iOS
+
+Building an iOS app needs macOS and Xcode — but you don't need a Mac yourself: the **Build** GitHub Actions workflow (`.github/workflows/build.yml`) builds an unsigned `.ipa` on a cloud Mac on every push to `main`. Download it from the workflow run's **Artifacts** (`BookYourToken-ios-unsigned`).
+
+**Installing on an iPhone from Windows** (free Apple ID):
+
+1. Install [Sideloadly](https://sideloadly.io/) and Apple's iTunes (the version from apple.com, not the Microsoft Store one).
+2. Connect the iPhone by USB and tap **Trust** on the phone.
+3. Drag `BookYourToken-unsigned.ipa` into Sideloadly, enter your Apple ID, click **Start**. Sideloadly signs it with your Apple ID.
+4. On the iPhone: **Settings → General → VPN & Device Management** → trust your Apple ID. On iOS 16+ also enable **Settings → Privacy & Security → Developer Mode** (the phone restarts).
+5. Open the app, sign in, allow notifications.
+
+With a free Apple ID the install expires after **7 days** — re-install the same `.ipa` with Sideloadly (your sign-in is kept in the Keychain). A paid Apple Developer account ($99/year) removes that limit and allows TestFlight.
+
+**With a Mac:** `brew install xcodegen`, then `cd iosApp && xcodegen generate && open BookYourToken.xcodeproj`, choose your team under *Signing & Capabilities*, plug in the iPhone and press Run. The Xcode project is generated from `iosApp/project.yml`, so it isn't committed.
+
+On Windows/Linux, `./gradlew :shared:compileKotlinIosArm64` still type-checks the iOS-specific Kotlin against the iOS SDK (klib cross-compilation), which catches most mistakes before CI does.
 
 ## Project structure
 
 ```
-app/src/main/java/com/example/bookyourtoken/
-├── data/
-│   ├── HostelClient.kt        OkHttp client, one session per operation
-│   ├── TokenPageParser.kt     Jsoup parsing of the booking page (pure, unit tested)
-│   ├── CredentialStore.kt     EncryptedSharedPreferences wrapper
-│   ├── AppPreferences.kt      Reminder time and toggles
-│   ├── DateUtils.kt           "Tomorrow" in Asia/Kolkata
-│   └── models/                TokenItem, BookedToken, BookResult, oresult messages
-├── ui/
-│   ├── setup/                 Sign-in screen
-│   ├── tokens/                Main screen, selection logic, ViewModel
-│   ├── booking/               Booking progress dialog
-│   ├── mytokens/              Booked tokens list and cancelling
-│   ├── settings/              Settings screen
-│   ├── common/                Shared components and formatting
-│   └── theme/                 Colours and typography
-└── work/
-    ├── ReminderWorker.kt      Daily check → notification
-    ├── ReminderScheduler.kt   Self-rescheduling one-shot WorkManager job
-    ├── NotificationHelper.kt  High-importance channel (pop-up + vibration)
-    └── BootReceiver.kt        Re-schedules the reminder after a reboot
+shared/src/                    Kotlin Multiplatform module — everything both apps share
+├── commonMain/kotlin/com/example/bookyourtoken/
+│   ├── AppContainer.kt        What each platform provides: storage, reminders, links
+│   ├── data/
+│   │   ├── HostelClient.kt    Ktor client, one session (cookie jar) per operation
+│   │   ├── TokenPageParser.kt Ksoup parsing of the booking page (pure, unit tested)
+│   │   ├── ReminderCheck.kt   The daily "what's on tomorrow" check
+│   │   ├── CredentialStore.kt Credentials over an encrypted Settings backend
+│   │   ├── AppPreferences.kt  Reminder time and toggles
+│   │   ├── DateUtils.kt       "Tomorrow" in Asia/Kolkata (kotlinx-datetime)
+│   │   └── models/            TokenItem, BookedToken, BookResult, oresult messages
+│   └── ui/                    Compose Multiplatform screens + ViewModels
+│       ├── setup/ tokens/ booking/ mytokens/ settings/
+│       ├── common/            Components, formatting, icons
+│       └── theme/             Colours and typography
+├── commonTest/                Tests (run on the JVM and on the iOS simulator)
+├── androidMain/               OkHttp engine
+└── iosMain/                   Darwin engine, Keychain, local-notification reminders, MainViewController
+
+app/                           Android app
+└── src/main/java/com/example/bookyourtoken/
+    ├── HostelApp.kt           Builds the AppContainer (EncryptedSharedPreferences)
+    ├── MainActivity.kt        Hosts the shared UI
+    ├── AndroidPlatform.kt     Links, notification settings, WorkManager reminders
+    └── work/                  ReminderWorker, ReminderScheduler, NotificationHelper, BootReceiver
+
+iosApp/                        iOS app (SwiftUI shell around the shared UI)
+├── project.yml                XcodeGen spec
+└── iosApp/                    iOSApp.swift (notification permission + banners), ContentView.swift, icon
 ```
 
-Built with Kotlin, Jetpack Compose (Material 3), OkHttp, Jsoup, WorkManager and AndroidX Security.
+Built with Kotlin Multiplatform, Compose Multiplatform (Material 3), Ktor, Ksoup, kotlinx-datetime, Multiplatform Settings, WorkManager and AndroidX Security.

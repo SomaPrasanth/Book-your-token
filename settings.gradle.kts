@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Book your token"
 include(":app")
+include(":shared")
  

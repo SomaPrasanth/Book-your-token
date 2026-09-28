@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.bookyourtoken.MainActivity
 import com.example.bookyourtoken.R
+import com.example.bookyourtoken.data.ReminderCheck
 
 object NotificationHelper {
     // Channel settings are frozen once created (even across delete + recreate with the same id),
@@ -53,7 +54,7 @@ object NotificationHelper {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Book tomorrow's food token")
+            .setContentTitle(ReminderCheck.NOTIFICATION_TITLE)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(contentIntent)
