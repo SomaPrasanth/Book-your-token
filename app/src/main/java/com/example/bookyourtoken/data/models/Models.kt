@@ -25,13 +25,34 @@ data class BookedToken(
     val viewStatus: String?,
     val mealTime: String?,
     val count: Int?
-)
+) {
+    /** "Y" = already issued/used; the site disables Cancel for these. */
+    val isUsed: Boolean get() = status == "Y"
+
+    /** Only "N" rows with every field the cancel request needs. Unknown statuses are not cancellable. */
+    val canCancel: Boolean
+        get() = status == "N" && tokenName != null && expireDate != null && mealTime != null
+
+    /** The portal identifies a token for cancelling by name + date + meal (plus roll number). */
+    fun isSameTokenAs(other: BookedToken): Boolean =
+        tokenName == other.tokenName && expireDate == other.expireDate && mealTime == other.mealTime
+}
 
 /** Outcome of a newStudentTokenApply call. Only oresult == 1 means the token was actually booked. */
 data class BookResult(
     val success: Boolean,
     val oresult: Int?,
     val count: Int?,
+    val message: String
+)
+
+/**
+ * Outcome of StudentTokenCancel / StudentTokenBulkCancel. Note the opposite convention to booking:
+ * here oresult == 0 is success.
+ */
+data class CancelResult(
+    val success: Boolean,
+    val oresult: Int?,
     val message: String
 )
 
@@ -52,5 +73,13 @@ fun messageForResult(oresult: Int?, count: Int?): String = when (oresult) {
     7 -> "Food not available for the selected time"
     8 -> "Please make sure to only apply for " + (count?.toString() ?: "")
     9 -> "The token limit has been reached."
+    else -> "Error occurred"
+}
+
+/** Cancel responses, from the site's own JS. Success is 0 — never share this with the booking mapping. */
+fun cancelMessage(oresult: Int?, bulk: Boolean): String = when (oresult) {
+    0 -> if (bulk) "Tokens cancelled" else "Token cancelled"
+    1 -> if (bulk) "No data found" else "Token already cancelled"
+    2 -> "Cancel time expired"
     else -> "Error occurred"
 }

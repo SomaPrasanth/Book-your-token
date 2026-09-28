@@ -3,6 +3,8 @@ package com.example.bookyourtoken.data
 import com.example.bookyourtoken.data.models.ApiResult
 import com.example.bookyourtoken.data.models.BookResult
 import com.example.bookyourtoken.data.models.BookedToken
+import com.example.bookyourtoken.data.models.CancelResult
+import com.example.bookyourtoken.data.models.cancelMessage
 import com.example.bookyourtoken.data.models.messageForResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -198,15 +200,7 @@ class HostelClient {
             if (!response.isSuccessful) {
                 ApiResult.Failure("Booking request failed (HTTP ${response.code}).")
             } else {
-                val body = response.body?.string().orEmpty().trim()
-                val obj: JSONObject = when {
-                    body.startsWith("[") -> {
-                        val array = JSONArray(body)
-                        if (array.length() == 0) JSONObject() else (array.optJSONObject(0) ?: JSONObject())
-                    }
-                    body.startsWith("{") -> JSONObject(body)
-                    else -> JSONObject()
-                }
+                val obj = firstResultObject(response.body?.string().orEmpty())
                 val oresult = obj.optIntOrNull("oresult")
                 val count = obj.optIntOrNull("Count")
                 ApiResult.Success(BookResult(oresult == 1, oresult, count, messageForResult(oresult, count)))
@@ -220,10 +214,83 @@ class HostelClient {
         ApiResult.Failure("Booking response was not understood.")
     }
 
+    /**
+     * Cancels ONE unit of a token (verified live: quantity 2 → 1). The token MUST be a
+     * StudentGetToken row — never build one from the booking page.
+     */
+    suspend fun cancelToken(rollNo: String, token: BookedToken): ApiResult<CancelResult> =
+        cancel("StudentTokenCancel", rollNo, token, bulk = false)
+
+    /**
+     * The site's "Cancel All". Same payload as [cancelToken]. Verified to remove a quantity-1 token;
+     * whether it clears a larger quantity in one go is still unverified.
+     */
+    suspend fun cancelAllOfToken(rollNo: String, token: BookedToken): ApiResult<CancelResult> =
+        cancel("StudentTokenBulkCancel", rollNo, token, bulk = true)
+
+    private suspend fun cancel(
+        endpoint: String,
+        rollNo: String,
+        token: BookedToken,
+        bulk: Boolean
+    ): ApiResult<CancelResult> {
+        val fields = cancelFormFields(rollNo, token)
+            ?: return ApiResult.Failure("This token is missing details needed to cancel it.")
+        return try {
+            val formBody = FormBody.Builder().apply { fields.forEach { (name, value) -> add(name, value) } }.build()
+            val request = xhrHeaders(Request.Builder().url("$BASE/Hostel/Student/$endpoint"), referer = BOOKING_PAGE_URL)
+                .post(formBody)
+                .build()
+            withResponse(request) { response ->
+                if (!response.isSuccessful) {
+                    ApiResult.Failure("Cancel request failed (HTTP ${response.code}).")
+                } else {
+                    val oresult = firstResultObject(response.body?.string().orEmpty()).optIntOrNull("oresult")
+                    ApiResult.Success(CancelResult(oresult == 0, oresult, cancelMessage(oresult, bulk)))
+                }
+            }
+        } catch (e: SocketTimeoutException) {
+            ApiResult.Failure("Cancel request timed out.", isTimeout = true)
+        } catch (e: IOException) {
+            ApiResult.Failure("Cancel request failed: ${e.message}")
+        } catch (e: JSONException) {
+            ApiResult.Failure("Cancel response was not understood.")
+        }
+    }
+
     companion object {
         const val BASE = "https://edviewx.psgtech.ac.in"
         const val BOOKING_PAGE_URL = "$BASE/Hostel/Student/StudentView"
         private const val USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+
+        /**
+         * The site's JS reads these from its booked-tokens table by column position, so the names
+         * don't match the contents: ISSUE_DATE carries the token NAME, TOKEN_ID carries the DATE,
+         * and Tokenno is the QR cell's text, always "View". Captured from the live site — don't
+         * "fix" them. TOKEN_NAME is passed through verbatim (no case changes).
+         */
+        internal fun cancelFormFields(rollNo: String, token: BookedToken): List<Pair<String, String>>? {
+            val name = token.tokenName ?: return null
+            val date = token.expireDate ?: return null
+            val meal = token.mealTime ?: return null
+            return listOf(
+                "rollno" to rollNo.uppercase(),
+                "Tokenno" to "View",
+                "ISSUE_DATE" to name,
+                "TOKEN_ID" to date,
+                "MEALTIME" to meal
+            )
+        }
+
+        /** Responses are usually an object but sometimes a one-element array; take the object either way. */
+        internal fun firstResultObject(rawBody: String): JSONObject {
+            val body = rawBody.trim()
+            return when {
+                body.startsWith("[") -> JSONArray(body).optJSONObject(0) ?: JSONObject()
+                body.startsWith("{") -> JSONObject(body)
+                else -> JSONObject()
+            }
+        }
     }
 }

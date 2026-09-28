@@ -10,9 +10,15 @@ object DateUtils {
     private val ZONE: ZoneId = ZoneId.of("Asia/Kolkata")
     private val FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy")
 
-    fun tomorrow(): LocalDate = LocalDate.now(ZONE).plusDays(1)
+    fun today(): LocalDate = LocalDate.now(ZONE)
+
+    fun tomorrow(): LocalDate = today().plusDays(1)
 
     fun tomorrowString(): String = tomorrow().format(FORMAT)
+
+    /** Parses the portal's dd-MM-yyyy dates; null if the portal sent something else. */
+    fun parsePortalDate(value: String?): LocalDate? =
+        value?.let { runCatching { LocalDate.parse(it, FORMAT) }.getOrNull() }
 
     /** e.g. "Tuesday, 29 Sep" */
     fun friendlyLabel(date: LocalDate): String =

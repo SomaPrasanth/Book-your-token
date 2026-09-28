@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +51,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -78,6 +81,9 @@ import com.example.bookyourtoken.ui.theme.successContainerColor
 @Composable
 fun TokensScreen(
     onOpenSettings: () -> Unit,
+    onOpenMyTokens: () -> Unit,
+    tokensChanged: Boolean,
+    onTokensChangedHandled: () -> Unit,
     viewModel: TokensViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -85,6 +91,14 @@ fun TokensScreen(
     val showConfirm by viewModel.showConfirmDialog.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val openPortal = { context.openUrl(HostelClient.BOOKING_PAGE_URL) }
+
+    // Something was cancelled on My Tokens: reload so "Already booked" is accurate.
+    LaunchedEffect(tokensChanged) {
+        if (tokensChanged) {
+            viewModel.refresh()
+            onTokensChangedHandled()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -102,6 +116,9 @@ fun TokensScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onOpenMyTokens) {
+                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = "My tokens")
+                    }
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
                     }
@@ -136,7 +153,8 @@ fun TokensScreen(
                         onToggle = viewModel::toggle,
                         onMeal = viewModel::setMeal,
                         onQuantity = viewModel::setQuantity,
-                        onOpenPortal = openPortal
+                        onOpenPortal = openPortal,
+                        onManageBooked = onOpenMyTokens
                     )
                 }
             }
@@ -215,7 +233,8 @@ private fun LoadedContent(
     onToggle: (TokenItem) -> Unit,
     onMeal: (TokenItem, String) -> Unit,
     onQuantity: (TokenItem, Int) -> Unit,
-    onOpenPortal: () -> Unit
+    onOpenPortal: () -> Unit,
+    onManageBooked: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -223,7 +242,7 @@ private fun LoadedContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (state.bookedTomorrow.isNotEmpty()) {
-            item(key = "booked") { BookedSummaryCard(state.bookedTomorrow) }
+            item(key = "booked") { BookedSummaryCard(state.bookedTomorrow, onManage = onManageBooked) }
         }
 
         if (state.items.isEmpty()) {
@@ -252,7 +271,7 @@ private fun LoadedContent(
 }
 
 @Composable
-private fun BookedSummaryCard(booked: List<BookedToken>) {
+private fun BookedSummaryCard(booked: List<BookedToken>, onManage: () -> Unit) {
     Card(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
@@ -264,7 +283,17 @@ private fun BookedSummaryCard(booked: List<BookedToken>) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Already booked for tomorrow", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Booked for tomorrow",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(
+                    onClick = onManage,
+                    colors = ButtonDefaults.textButtonColors(contentColor = onSuccessContainerColor)
+                ) {
+                    Text("Manage")
+                }
             }
             booked.forEach {
                 Row(modifier = Modifier.fillMaxWidth()) {
