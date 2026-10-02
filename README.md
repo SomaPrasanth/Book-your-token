@@ -21,6 +21,8 @@ Built with Kotlin Multiplatform: the portal client, parsing, booking/cancel logi
 - **Clear results** — each item shows the portal's own response ("Token Booked", "Token apply time has expired", …).
 - **My tokens** — everything you've booked, grouped by date, with a Cancel button for tokens that haven't been used yet.
 - **Skip when already booked** — optionally no reminder on days you've already booked.
+- **Food token QR** — once the portal enables a token's QR, a *Show today's QR* button appears (and *Show QR* on that token in My tokens). The QR is shown large on white, at full brightness with the screen kept on, above the list of tokens it covers. A copy is kept for when the mess hall has no signal ("Offline copy from 7:42 AM — may be outdated").
+- **Optional "QR ready" notification** (Android, off by default) — one morning check that tells you when your QR is enabled.
 
 ### Android vs iOS
 
@@ -33,13 +35,17 @@ Everything above works the same on both, except the daily reminder:
 | Planning | Reschedules itself daily | Planned two weeks ahead and topped up every time you open the app |
 | Check now | Background check → notification | Same check, run while the app is open → notification |
 | Credentials | `EncryptedSharedPreferences` | iOS Keychain |
+| "QR ready" notification | Optional morning check | Not available — needs a background check at a set time |
+| "Show QR" shortcut | Long-press the app icon | — |
+| Offline QR copy | App-private `filesDir`, not backed up | App sandbox (Application Support), file protection on, not backed up |
 
 ## Safety rules the app follows
 
 - **Nothing is ever booked without you tapping _Book now_.** No auto-booking, no booking from the notification.
 - **Nothing is cancelled without a confirmation** that names the exact token, meal, date and quantity. "Cancel all" is a separate, clearly-labelled action with its own warning.
 - **Credentials stay on your phone**, in `EncryptedSharedPreferences` (Android) or the Keychain (iOS). The password is only ever sent in the portal's own login request — never logged or sent anywhere else.
-- **Gentle on the portal**: one background check per day, bookings sent one at a time, no polling.
+- **Gentle on the portal**: one background check per day (two if "QR ready" is on), bookings sent one at a time, no polling.
+- **The QR is shown exactly as the portal sends it** — never generated, decoded or altered — and only fetched when the portal says a token's QR is enabled (`ViewStatus == "1"`). The offline copy stays in app-private storage and is deleted once every token it covers is in the past, and on sign-out or sign-in.
 - **No blind retries**: if a booking or cancel request gets no response, the app re-reads your bookings to see whether it registered before telling you anything, and never resends it for you.
 
 ## How it talks to the portal
@@ -55,6 +61,7 @@ There's no public API, so the app does what the website does, using the same end
 | 5 | `POST /Hostel/Student/newStudentTokenApply` | Book one item (success: `oresult == 1`) |
 | 6 | `POST /Hostel/Student/StudentTokenCancel` | Cancel **one** unit — verified: quantity 2 → 1 (success: `oresult == 0`) |
 | 7 | `POST /Hostel/Student/StudentTokenBulkCancel` | The site's "Cancel All" — same payload; verified on a quantity-1 token, behaviour for larger quantities unverified |
+| 8 | `GET /Hostel/QRCode/QRcodeGenerate` | The QR page (one per student; the server picks the tokens from the session). Only requested when a StudentGetToken row has `ViewStatus == "1"`. The QR is an embedded `data:image/png` (`alt="QR Code"`); the page's hidden inputs are ignored |
 
 The cancel endpoints identify a token by roll number + name + date + meal, using field names that don't match their contents (the site's JavaScript reads them from table columns by position): `ISSUE_DATE` carries the **token name** and `TOKEN_ID` carries the **date**. See `HostelClient.cancelFormFields` — it's covered by a unit test so nobody "fixes" it.
 
@@ -75,7 +82,7 @@ Requirements: a recent Android Studio with Android SDK Platform 37 installed (AG
 git clone <your-fork-url>
 cd book-your-token
 ./gradlew :app:assembleDebug            # APK in app/build/outputs/apk/debug/
-./gradlew :shared:testAndroidHostTest   # parser, portal-response, cancel-request, date, formatting and selection tests
+./gradlew :shared:testAndroidHostTest   # parser, QR page, offline QR, portal-response, cancel-request, date, formatting and selection tests
 ```
 
 Or open the folder in Android Studio and press **Run**.
@@ -107,25 +114,27 @@ shared/src/                    Kotlin Multiplatform module — everything both a
 │   ├── data/
 │   │   ├── HostelClient.kt    Ktor client, one session (cookie jar) per operation
 │   │   ├── TokenPageParser.kt Ksoup parsing of the booking page (pure, unit tested)
+│   │   ├── QrPageParser.kt    QR image + token table from the QR page (pure, unit tested)
+│   │   ├── QrStore.kt         Offline QR copy in app-private files; deleted once stale
 │   │   ├── ReminderCheck.kt   The daily "what's on tomorrow" check
 │   │   ├── CredentialStore.kt Credentials over an encrypted Settings backend
 │   │   ├── AppPreferences.kt  Reminder time and toggles
 │   │   ├── DateUtils.kt       "Tomorrow" in Asia/Kolkata (kotlinx-datetime)
 │   │   └── models/            TokenItem, BookedToken, BookResult, oresult messages
 │   └── ui/                    Compose Multiplatform screens + ViewModels
-│       ├── setup/ tokens/ booking/ mytokens/ settings/
+│       ├── setup/ tokens/ booking/ mytokens/ settings/ qr/
 │       ├── common/            Components, formatting, icons
 │       └── theme/             Colours and typography
 ├── commonTest/                Tests (run on the JVM and on the iOS simulator)
-├── androidMain/               OkHttp engine
-└── iosMain/                   Darwin engine, Keychain, local-notification reminders, MainViewController
+├── androidMain/               OkHttp engine, QR image decoding + brightness
+└── iosMain/                   Darwin engine, Keychain, local-notification reminders, private files, MainViewController
 
 app/                           Android app
 └── src/main/java/com/example/bookyourtoken/
     ├── HostelApp.kt           Builds the AppContainer (EncryptedSharedPreferences)
     ├── MainActivity.kt        Hosts the shared UI
-    ├── AndroidPlatform.kt     Links, notification settings, WorkManager reminders
-    └── work/                  ReminderWorker, ReminderScheduler, NotificationHelper, BootReceiver
+    ├── AndroidPlatform.kt     Links, notification settings, WorkManager reminders, private files
+    └── work/                  ReminderWorker, QrReadyWorker, ReminderScheduler, NotificationHelper, BootReceiver
 
 iosApp/                        iOS app (SwiftUI shell around the shared UI)
 ├── project.yml                XcodeGen spec

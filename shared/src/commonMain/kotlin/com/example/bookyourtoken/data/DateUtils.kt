@@ -3,18 +3,22 @@ package com.example.bookyourtoken.data
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /** All date handling is anchored to Asia/Kolkata regardless of the device's own timezone. */
 object DateUtils {
     val ZONE: TimeZone = TimeZone.of("Asia/Kolkata")
 
     private val PORTAL_DATE = Regex("""(\d{2})-(\d{2})-(\d{4})""")
+    private val LOOSE_DATE = Regex("""(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})""")
 
     fun today(): LocalDate = Clock.System.todayIn(ZONE)
 
@@ -32,6 +36,20 @@ object DateUtils {
         val (day, month, year) = match.destructured
         return runCatching { LocalDate(year.toInt(), month.toInt(), day.toInt()) }.getOrNull()
     }
+
+    /**
+     * Day-first dates anywhere in [value]: "02-10-2026", "2/10/2026 12:00:00 AM". For portal pages
+     * whose date format isn't pinned down, like the QR page's token table.
+     */
+    fun parseLooseDate(value: String?): LocalDate? {
+        val match = value?.let { LOOSE_DATE.find(it) } ?: return null
+        val (day, month, year) = match.destructured
+        return runCatching { LocalDate(year.toInt(), month.toInt(), day.toInt()) }.getOrNull()
+    }
+
+    fun localDateTime(instant: Instant): LocalDateTime = instant.toLocalDateTime(ZONE)
+
+    fun dateOf(instant: Instant): LocalDate = localDateTime(instant).date
 
     /** e.g. "Tuesday, 29 Sep" */
     fun friendlyLabel(date: LocalDate): String =

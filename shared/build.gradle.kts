@@ -24,6 +24,7 @@ kotlin {
             api(libs.compose.runtime)
             api(libs.compose.foundation)
             api(libs.compose.ui)
+            implementation(libs.compose.ui.backhandler)
             api(libs.compose.material3)
             implementation(libs.compose.material.icons.core)
             api(libs.lifecycle.viewmodel.compose)

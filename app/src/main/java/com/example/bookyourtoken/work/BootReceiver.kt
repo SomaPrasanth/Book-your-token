@@ -10,6 +10,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             if (context.appContainer.credentials.hasCredentials()) {
                 ReminderScheduler.schedule(context)
+                ReminderScheduler.scheduleQrReady(context)
             }
         }
     }

@@ -159,6 +159,19 @@ class HostelClient : AutoCloseable {
         }
     }
 
+    /**
+     * The student's one QR page — the server picks which tokens it covers from the session, so call
+     * it after login → StudentView → StudentGetToken, and only when some token has ViewStatus "1".
+     * The body is a redemption credential: never log it.
+     */
+    suspend fun fetchQrPageHtml(): ApiResult<String> =
+        guarded(timeout = "Loading the QR timed out.", failed = "Couldn't load the QR") {
+            client.get(QR_PAGE_URL) {
+                baseHeaders()
+                header(HttpHeaders.Referrer, BOOKING_PAGE_URL)
+            }.ifSuccessful("Couldn't load the QR") { ApiResult.Success(it) }
+        }
+
     /** date must be exactly the dd-MM-yyyy value from the item's date dropdown — never reformatted. */
     suspend fun bookToken(ptokenId: Int, qty: Int, date: String, mealTime: String): ApiResult<BookResult> = guarded(
         timeout = "Booking request timed out.",
@@ -225,6 +238,7 @@ class HostelClient : AutoCloseable {
     companion object {
         const val BASE = "https://edviewx.psgtech.ac.in"
         const val BOOKING_PAGE_URL = "$BASE/Hostel/Student/StudentView"
+        const val QR_PAGE_URL = "$BASE/Hostel/QRCode/QRcodeGenerate"
         private const val USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
 

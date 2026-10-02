@@ -30,6 +30,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,6 +71,7 @@ import com.example.bookyourtoken.ui.theme.successColor
 fun MyTokensScreen(
     onBack: () -> Unit,
     onTokensChanged: () -> Unit,
+    onOpenQr: () -> Unit,
     viewModel: MyTokensViewModel
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -120,7 +122,8 @@ fun MyTokensScreen(
                         TokenList(
                             groups = state.groups,
                             onCancel = { viewModel.requestCancel(it, bulk = false) },
-                            onCancelAll = { viewModel.requestCancel(it, bulk = true) }
+                            onCancelAll = { viewModel.requestCancel(it, bulk = true) },
+                            onShowQr = onOpenQr
                         )
                     }
                 }
@@ -140,7 +143,8 @@ fun MyTokensScreen(
 private fun TokenList(
     groups: List<TokenGroup>,
     onCancel: (BookedToken) -> Unit,
-    onCancelAll: (BookedToken) -> Unit
+    onCancelAll: (BookedToken) -> Unit,
+    onShowQr: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -158,14 +162,19 @@ private fun TokenList(
             }
             // The portal can return several rows with the same name/date/meal, so key by position.
             itemsIndexed(group.tokens, key = { index, _ -> "${group.date}#$index" }) { _, token ->
-                BookedTokenCard(token, onCancel = { onCancel(token) }, onCancelAll = { onCancelAll(token) })
+                BookedTokenCard(
+                    token,
+                    onCancel = { onCancel(token) },
+                    onCancelAll = { onCancelAll(token) },
+                    onShowQr = onShowQr
+                )
             }
         }
     }
 }
 
 @Composable
-private fun BookedTokenCard(token: BookedToken, onCancel: () -> Unit, onCancelAll: () -> Unit) {
+private fun BookedTokenCard(token: BookedToken, onCancel: () -> Unit, onCancelAll: () -> Unit, onShowQr: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
 
@@ -192,6 +201,18 @@ private fun BookedTokenCard(token: BookedToken, onCancel: () -> Unit, onCancelAl
                 when {
                     token.isUsed -> StatusLabel("Already used")
                     !token.canCancel -> StatusLabel("Can't be cancelled")
+                }
+                // There's one QR page per student, so every row's button opens the same screen.
+                if (token.qrEnabled) {
+                    FilledTonalButton(
+                        onClick = onShowQr,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(top = 6.dp).height(32.dp)
+                    ) {
+                        Icon(AppIcons.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Show QR", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
             OutlinedButton(

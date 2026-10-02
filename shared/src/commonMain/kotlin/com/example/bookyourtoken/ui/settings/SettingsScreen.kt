@@ -69,7 +69,7 @@ fun SettingsScreen(
     val platform = LocalPlatformActions.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var showTimePicker by remember { mutableStateOf(false) }
+    var timePicker by remember { mutableStateOf<TimePickerTarget?>(null) }
     var confirmSignOut by remember { mutableStateOf(false) }
 
     // Re-read on every resume: the user may have just toggled notifications in system settings.
@@ -115,7 +115,7 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
                     },
-                    onClick = { showTimePicker = true }
+                    onClick = { timePicker = TimePickerTarget.Reminder }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingsRow(
@@ -141,6 +141,38 @@ fun SettingsScreen(
                         scope.launch { snackbarHostState.showSnackbar("Checking the portal — a notification will follow.") }
                     }
                 )
+            }
+
+            // The QR-ready check has to ask the portal at a set time, which only Android can do.
+            if (state.remindersCheckInBackground) {
+                SectionHeader("Food QR")
+                SettingsCard {
+                    SettingsRow(
+                        title = "QR ready notification",
+                        subtitle = "One morning check — tells you when the portal has enabled your QR",
+                        leading = { Icon(AppIcons.QrCode, contentDescription = null) },
+                        trailing = {
+                            Switch(checked = state.qrReadyEnabled, onCheckedChange = viewModel::setQrReadyEnabled)
+                        },
+                        onClick = { viewModel.setQrReadyEnabled(!state.qrReadyEnabled) }
+                    )
+                    if (state.qrReadyEnabled) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                        SettingsRow(
+                            title = "Check at",
+                            subtitle = "Tap to change",
+                            leading = { Icon(AppIcons.Schedule, contentDescription = null) },
+                            trailing = {
+                                Text(
+                                    formatTime(state.qrReadyHour, state.qrReadyMinute),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            onClick = { timePicker = TimePickerTarget.QrReady }
+                        )
+                    }
+                }
             }
 
             SectionHeader("Notifications")
@@ -214,17 +246,28 @@ fun SettingsScreen(
         }
     }
 
-    if (showTimePicker) {
-        TimePickerDialog(
+    when (timePicker) {
+        TimePickerTarget.Reminder -> TimePickerDialog(
             initialHour = state.reminderHour,
             initialMinute = state.reminderMinute,
-            onDismiss = { showTimePicker = false },
+            onDismiss = { timePicker = null },
             onConfirm = { hour, minute ->
                 viewModel.setReminderTime(hour, minute)
-                showTimePicker = false
+                timePicker = null
                 scope.launch { snackbarHostState.showSnackbar("Reminder set for ${formatTime(hour, minute)} daily") }
             }
         )
+        TimePickerTarget.QrReady -> TimePickerDialog(
+            initialHour = state.qrReadyHour,
+            initialMinute = state.qrReadyMinute,
+            onDismiss = { timePicker = null },
+            onConfirm = { hour, minute ->
+                viewModel.setQrReadyTime(hour, minute)
+                timePicker = null
+                scope.launch { snackbarHostState.showSnackbar("QR check set for ${formatTime(hour, minute)} daily") }
+            }
+        )
+        null -> Unit
     }
 
     if (confirmSignOut) {
@@ -244,6 +287,8 @@ fun SettingsScreen(
         )
     }
 }
+
+private enum class TimePickerTarget { Reminder, QrReady }
 
 @Composable
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
