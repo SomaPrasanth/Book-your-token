@@ -9,8 +9,8 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: "1.1"
-    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "1.2"
+    CURRENT_PROJECT_VERSION: "3"
 
 targets:
   BookYourToken:
@@ -31,6 +31,9 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         # Compose Multiplatform renders at the display's full refresh rate on ProMotion iPhones.
         CADisableMinimumFrameDurationOnPhone: true
+        # White status-bar text on the gradient header that every screen starts with.
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIViewControllerBasedStatusBarAppearance: false
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:

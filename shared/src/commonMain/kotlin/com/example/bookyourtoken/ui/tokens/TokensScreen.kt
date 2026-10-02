@@ -20,8 +20,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
@@ -45,8 +45,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,11 +65,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.bookyourtoken.data.DateUtils
 import com.example.bookyourtoken.data.HostelClient
 import com.example.bookyourtoken.data.models.BookedToken
 import com.example.bookyourtoken.data.models.TokenItem
 import com.example.bookyourtoken.ui.booking.BookingProgressDialog
 import com.example.bookyourtoken.ui.common.AppIcons
+import com.example.bookyourtoken.ui.common.BrandHeader
+import com.example.bookyourtoken.ui.common.FoodBadge
 import com.example.bookyourtoken.ui.common.IconBadge
 import com.example.bookyourtoken.ui.common.LocalPlatformActions
 import com.example.bookyourtoken.ui.common.formatRupees
@@ -80,6 +81,7 @@ import com.example.bookyourtoken.ui.common.priceValue
 import com.example.bookyourtoken.ui.theme.onSuccessContainerColor
 import com.example.bookyourtoken.ui.theme.successColor
 import com.example.bookyourtoken.ui.theme.successContainerColor
+import kotlin.time.Clock
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,25 +112,15 @@ fun TokensScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Tomorrow's tokens")
-                        (uiState as? TokensUiState.Loaded)?.let {
-                            Text(
-                                it.tomorrowLabel,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
+            BrandHeader(
+                eyebrow = greeting(),
+                title = "Tomorrow's tokens",
+                subtitle = (uiState as? TokensUiState.Loaded)?.tomorrowLabel,
                 actions = {
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh tomorrow's tokens")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                }
             )
         },
         bottomBar = {
@@ -246,17 +238,7 @@ private fun LoadedContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (state.qrAvailable) {
-            item(key = "qr") {
-                Button(
-                    onClick = onOpenQr,
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(AppIcons.QrCode, contentDescription = null, modifier = Modifier.size(22.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text("Show today's QR", style = MaterialTheme.typography.titleMedium)
-                }
-            }
+            item(key = "qr") { QrReadyCard(onClick = onOpenQr) }
         }
 
         if (state.bookedTomorrow.isNotEmpty()) {
@@ -291,9 +273,46 @@ private fun LoadedContent(
 }
 
 @Composable
+private fun QrReadyCard(onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = scheme.primaryContainer,
+            contentColor = scheme.onPrimaryContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(
+                painter = rememberVectorPainter(AppIcons.QrCode),
+                containerColor = scheme.primary,
+                contentColor = scheme.onPrimary,
+                size = 52.dp,
+                iconSize = 28.dp
+            )
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Show today's QR", style = MaterialTheme.typography.titleMedium)
+                Text("Open it at the mess counter", style = MaterialTheme.typography.bodyMedium)
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+        }
+    }
+}
+
+/** "Good morning" etc. by the hostel's clock, for the Book tab's header. */
+private fun greeting(): String = when (DateUtils.localDateTime(Clock.System.now()).hour) {
+    in 4..11 -> "Good morning"
+    in 12..16 -> "Good afternoon"
+    else -> "Good evening"
+}
+
+@Composable
 private fun BookedSummaryCard(booked: List<BookedToken>, onManage: () -> Unit) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = successContainerColor,
             contentColor = onSuccessContainerColor
@@ -339,13 +358,7 @@ private fun EmptyMenuCard(dateLabel: String, onOpenPortal: () -> Unit) {
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            IconBadge(
-                painter = rememberVectorPainter(AppIcons.Restaurant),
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                size = 64.dp,
-                iconSize = 30.dp
-            )
+            FoodBadge("", size = 64.dp)
             Spacer(Modifier.height(16.dp))
             Text("Nothing on offer yet", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
@@ -375,10 +388,11 @@ private fun TokenCard(
     val scheme = MaterialTheme.colorScheme
     Card(
         onClick = onToggle,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) scheme.surfaceContainerHigh else scheme.surfaceContainerLow
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 4.dp else 1.dp),
         border = if (selected) BorderStroke(2.dp, scheme.primary) else BorderStroke(1.dp, scheme.outlineVariant),
         // The card is one control for screen readers: "Boiled Egg, Lunch · Dinner, ₹12, not checked".
         modifier = Modifier
@@ -394,12 +408,8 @@ private fun TokenCard(
                 .animateContentSize()
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBadge(
-                    painter = if (selected) rememberVectorPainter(Icons.Filled.Check) else rememberVectorPainter(AppIcons.Restaurant),
-                    containerColor = if (selected) scheme.primary else scheme.primaryContainer,
-                    contentColor = if (selected) scheme.onPrimary else scheme.onPrimaryContainer
-                )
-                Spacer(Modifier.width(12.dp))
+                FoodBadge(item.name, selected = selected)
+                Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         prettyName(item.name),
@@ -520,7 +530,8 @@ private fun BookingBar(state: TokensUiState.Loaded, onBook: () -> Unit) {
     val total = estimatedTotal(selected)
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
-        shadowElevation = 8.dp
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shadowElevation = 12.dp
     ) {
         Row(
             modifier = Modifier
@@ -554,8 +565,15 @@ private fun BookingBar(state: TokensUiState.Loaded, onBook: () -> Unit) {
                     }
                 }
             }
-            Button(onClick = onBook, enabled = selected.isNotEmpty()) {
-                Text(if (selected.isEmpty()) "Book" else "Book (${selected.size})")
+            Button(
+                onClick = onBook,
+                enabled = selected.isNotEmpty(),
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp)
+            ) {
+                Text(
+                    if (selected.isEmpty()) "Book" else "Book (${selected.size})",
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
         }
     }
