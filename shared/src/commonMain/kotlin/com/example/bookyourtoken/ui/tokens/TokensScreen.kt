@@ -20,12 +20,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -56,6 +54,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,9 +84,9 @@ import com.example.bookyourtoken.ui.theme.successContainerColor
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TokensScreen(
-    onOpenSettings: () -> Unit,
     onOpenMyTokens: () -> Unit,
     onOpenQr: () -> Unit,
+    onUpcomingCount: (Int) -> Unit,
     tokensChanged: Boolean,
     onTokensChangedHandled: () -> Unit,
     viewModel: TokensViewModel
@@ -89,6 +96,9 @@ fun TokensScreen(
     val showConfirm by viewModel.showConfirmDialog.collectAsStateWithLifecycle()
     val platform = LocalPlatformActions.current
     val openPortal = { platform.openUrl(HostelClient.BOOKING_PAGE_URL) }
+
+    val upcoming = (uiState as? TokensUiState.Loaded)?.upcomingCount
+    LaunchedEffect(upcoming) { upcoming?.let(onUpcomingCount) }
 
     // Something was cancelled on My Tokens: reload so "Already booked" is accurate.
     LaunchedEffect(tokensChanged) {
@@ -114,14 +124,8 @@ fun TokensScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onOpenMyTokens) {
-                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = "My tokens")
-                    }
                     IconButton(onClick = viewModel::refresh) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh tomorrow's tokens")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -267,7 +271,9 @@ private fun LoadedContent(
                     "Available tomorrow · ${state.items.size}",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                    modifier = Modifier
+                        .padding(start = 4.dp, top = 8.dp)
+                        .semantics { heading() }
                 )
             }
             items(state.items, key = { it.ptokenId }) { item ->
@@ -300,13 +306,15 @@ private fun BookedSummaryCard(booked: List<BookedToken>, onManage: () -> Unit) {
                 Text(
                     "Booked for tomorrow",
                     style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { heading() }
                 )
                 TextButton(
                     onClick = onManage,
                     colors = ButtonDefaults.textButtonColors(contentColor = onSuccessContainerColor)
                 ) {
-                    Text("Manage")
+                    Text("View booked")
                 }
             }
             booked.forEach {
@@ -372,7 +380,13 @@ private fun TokenCard(
             containerColor = if (selected) scheme.surfaceContainerHigh else scheme.surfaceContainerLow
         ),
         border = if (selected) BorderStroke(2.dp, scheme.primary) else BorderStroke(1.dp, scheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth()
+        // The card is one control for screen readers: "Boiled Egg, Lunch · Dinner, ₹12, not checked".
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics {
+                role = Role.Checkbox
+                toggleableState = ToggleableState(selected)
+            }
     ) {
         Column(
             modifier = Modifier
@@ -390,7 +404,7 @@ private fun TokenCard(
                     Text(
                         prettyName(item.name),
                         style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
@@ -422,7 +436,12 @@ private fun TokenCard(
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider(color = scheme.outlineVariant)
                 Spacer(Modifier.height(12.dp))
-                Text("Meal", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
+                Text(
+                    "Meal",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = scheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { heading() }
+                )
                 Spacer(Modifier.height(8.dp))
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     item.meals.forEachIndexed { index, meal ->
@@ -441,7 +460,12 @@ private fun TokenCard(
                         Text("Quantity", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
                         Text("Up to ${item.maxQty}", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
                     }
-                    QuantityStepper(quantity = selection.quantity, max = item.maxQty, onChange = onQuantity)
+                    QuantityStepper(
+                        itemName = prettyName(item.name),
+                        quantity = selection.quantity,
+                        max = item.maxQty,
+                        onChange = onQuantity
+                    )
                 }
             }
         }
@@ -460,19 +484,25 @@ private fun PriceTag(price: String) {
 }
 
 @Composable
-private fun QuantityStepper(quantity: Int, max: Int, onChange: (Int) -> Unit) {
+private fun QuantityStepper(itemName: String, quantity: Int, max: Int, onChange: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         FilledTonalIconButton(onClick = { onChange(quantity - 1) }, enabled = quantity > 1) {
-            Icon(AppIcons.Remove, contentDescription = "Decrease quantity")
+            Icon(AppIcons.Remove, contentDescription = "Fewer $itemName")
         }
         Text(
             "$quantity",
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(min = 40.dp)
+            modifier = Modifier
+                .widthIn(min = 40.dp)
+                // Announced whenever it changes, so screen-reader users hear the new quantity.
+                .semantics {
+                    contentDescription = "Quantity $quantity of $max"
+                    liveRegion = LiveRegionMode.Polite
+                }
         )
         FilledTonalIconButton(onClick = { onChange(quantity + 1) }, enabled = quantity < max) {
-            Icon(Icons.Filled.Add, contentDescription = "Increase quantity")
+            Icon(Icons.Filled.Add, contentDescription = "More $itemName")
         }
     }
 }
@@ -499,7 +529,11 @@ private fun BookingBar(state: TokensUiState.Loaded, onBook: () -> Unit) {
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }
+            ) {
                 if (selected.isEmpty()) {
                     Text(
                         "Tap an item to select it",

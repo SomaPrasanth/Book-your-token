@@ -34,6 +34,12 @@ fun groupTokensByDate(tokens: List<BookedToken>, today: LocalDate): List<TokenGr
         .map { it.second }
 }
 
+/** Booked rows still to come (today or later, not yet used): the badge on the Booked tab. */
+fun countUpcoming(tokens: List<BookedToken>, today: LocalDate): Int =
+    tokens.count { token ->
+        !token.isUsed && DateUtils.parsePortalDate(token.expireDate)?.let { it >= today } == true
+    }
+
 /** Total quantity held for the same name + date + meal as [token]; 0 once it's gone. */
 fun quantityOf(tokens: List<BookedToken>, token: BookedToken): Int =
     tokens.filter { it.isSameTokenAs(token) }.sumOf { it.tokenQty ?: 1 }

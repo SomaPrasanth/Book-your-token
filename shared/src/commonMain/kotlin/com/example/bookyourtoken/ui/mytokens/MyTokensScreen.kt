@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
@@ -52,6 +51,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -69,14 +71,17 @@ import com.example.bookyourtoken.ui.theme.successColor
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyTokensScreen(
-    onBack: () -> Unit,
     onTokensChanged: () -> Unit,
     onOpenQr: () -> Unit,
+    onUpcomingCount: (Int) -> Unit,
     viewModel: MyTokensViewModel
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val cancelState by viewModel.cancelState.collectAsStateWithLifecycle()
     val tokensChanged by viewModel.tokensChanged.collectAsStateWithLifecycle()
+
+    val upcoming = (uiState as? MyTokensUiState.Loaded)?.upcomingCount
+    LaunchedEffect(upcoming) { upcoming?.let(onUpcomingCount) }
 
     LaunchedEffect(tokensChanged) {
         if (tokensChanged) {
@@ -88,15 +93,10 @@ fun MyTokensScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My tokens") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
+                title = { Text("Booked tokens") },
                 actions = {
                     IconButton(onClick = viewModel::refresh) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh booked tokens")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -157,7 +157,9 @@ private fun TokenList(
                     group.label,
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                    modifier = Modifier
+                        .padding(start = 4.dp, top = 8.dp)
+                        .semantics { heading() }
                 )
             }
             // The portal can return several rows with the same name/date/meal, so key by position.
@@ -177,6 +179,9 @@ private fun TokenList(
 private fun BookedTokenCard(token: BookedToken, onCancel: () -> Unit, onCancelAll: () -> Unit, onShowQr: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
+    // Spoken with every button, so it's clear which token a Cancel or Show QR belongs to.
+    val name = prettyName(token.tokenName ?: "Unknown item")
+    val which = "$name, ${token.mealTime.orEmpty()}"
 
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -192,7 +197,7 @@ private fun BookedTokenCard(token: BookedToken, onCancel: () -> Unit, onCancelAl
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(prettyName(token.tokenName ?: "Unknown item"), style = MaterialTheme.typography.titleMedium)
+                Text(name, style = MaterialTheme.typography.titleMedium)
                 Text(
                     "${token.mealTime.orEmpty()} · Qty ${token.tokenQty ?: 1}",
                     style = MaterialTheme.typography.bodySmall,
@@ -207,7 +212,9 @@ private fun BookedTokenCard(token: BookedToken, onCancel: () -> Unit, onCancelAl
                     FilledTonalButton(
                         onClick = onShowQr,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        modifier = Modifier.padding(top = 6.dp).height(32.dp)
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .semantics { contentDescription = "Show QR for $which" }
                     ) {
                         Icon(AppIcons.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
@@ -219,13 +226,14 @@ private fun BookedTokenCard(token: BookedToken, onCancel: () -> Unit, onCancelAl
                 onClick = onCancel,
                 enabled = token.canCancel,
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = scheme.error),
-                border = BorderStroke(1.dp, if (token.canCancel) scheme.error else scheme.outlineVariant)
+                border = BorderStroke(1.dp, if (token.canCancel) scheme.error else scheme.outlineVariant),
+                modifier = Modifier.semantics { contentDescription = "Cancel one $which" }
             ) {
                 Text("Cancel")
             }
             Box {
                 IconButton(onClick = { menuOpen = true }, enabled = token.canCancel) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "More options")
+                    Icon(Icons.Filled.MoreVert, contentDescription = "More options for $which")
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(

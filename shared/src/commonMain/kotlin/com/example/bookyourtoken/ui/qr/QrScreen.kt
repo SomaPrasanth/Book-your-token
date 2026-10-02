@@ -19,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -48,6 +47,9 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,7 +65,7 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QrScreen(onBack: () -> Unit, viewModel: QrViewModel) {
+fun QrScreen(viewModel: QrViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val platform = LocalPlatformActions.current
     val openInBrowser = { platform.openUrl(HostelClient.QR_PAGE_URL) }
@@ -72,14 +74,9 @@ fun QrScreen(onBack: () -> Unit, viewModel: QrViewModel) {
         topBar = {
             TopAppBar(
                 title = { Text("Food token QR") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
                 actions = {
                     IconButton(onClick = viewModel::refresh, enabled = uiState !is QrUiState.Loading) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh QR")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -256,13 +253,16 @@ private fun TokenTable(rows: List<QrTokenRow>) {
                 "This QR covers",
                 style = MaterialTheme.typography.labelLarge,
                 color = scheme.primary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .semantics { heading() }
             )
             rows.forEachIndexed { index, row ->
                 if (index > 0) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .semantics(mergeDescendants = true) {}
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -275,7 +275,11 @@ private fun TokenTable(rows: List<QrTokenRow>) {
                         )
                     }
                     if (row.quantity.isNotBlank()) {
-                        Text("× ${row.quantity}", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "× ${row.quantity}",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.semantics { contentDescription = "quantity ${row.quantity}" }
+                        )
                     }
                 }
             }
