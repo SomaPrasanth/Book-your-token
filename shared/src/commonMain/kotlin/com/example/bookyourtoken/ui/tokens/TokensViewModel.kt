@@ -23,6 +23,8 @@ sealed interface TokensUiState {
         val tomorrowLabel: String,
         val items: List<TokenItem>,
         val bookedTomorrow: List<BookedToken>,
+        /** Some booked token has ViewStatus "1" — the portal has enabled its QR. */
+        val qrAvailable: Boolean = false,
         val selections: Selections = emptyMap(),
         val isRefreshing: Boolean = false
     ) : TokensUiState {
@@ -118,7 +120,8 @@ class TokensViewModel(private val container: AppContainer) : ViewModel() {
                     tomorrowDate = tomorrow,
                     tomorrowLabel = DateUtils.friendlyLabel(DateUtils.tomorrow()),
                     items = items.filter { tomorrow in it.dates },
-                    bookedTomorrow = bookedTomorrow
+                    bookedTomorrow = bookedTomorrow,
+                    qrAvailable = booked.any { it.qrEnabled }
                 )
                 if (bookedTomorrow.isNotEmpty()) container.reminders.onTomorrowBooked()
             }

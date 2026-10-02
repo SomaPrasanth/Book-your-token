@@ -3,6 +3,8 @@ package com.example.bookyourtoken
 import androidx.compose.ui.window.ComposeUIViewController
 import com.example.bookyourtoken.data.AppPreferences
 import com.example.bookyourtoken.data.CredentialStore
+import com.example.bookyourtoken.data.IosPrivateFiles
+import com.example.bookyourtoken.data.QrStore
 import com.example.bookyourtoken.ui.App
 import com.russhwolf.settings.ExperimentalSettingsImplementation
 import com.russhwolf.settings.KeychainSettings
@@ -18,7 +20,8 @@ private val container: AppContainer by lazy {
         credentials = credentials,
         preferences = preferences,
         reminders = IosReminders(credentials, preferences),
-        platform = IosPlatformActions()
+        platform = IosPlatformActions(),
+        qr = QrStore(IosPrivateFiles())
     )
 }
 

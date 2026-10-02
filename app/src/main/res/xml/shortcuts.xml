@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press the launcher icon → "Show QR": opens straight on the QR screen at the mess counter. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="show_qr"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_qr"
+        android:shortcutShortLabel="@string/shortcut_show_qr"
+        android:shortcutLongLabel="@string/shortcut_show_qr_long">
+        <intent
+            android:action="com.example.bookyourtoken.SHOW_QR"
+            android:targetPackage="com.example.bookyourtoken"
+            android:targetClass="com.example.bookyourtoken.MainActivity" />
+    </shortcut>
+</shortcuts>

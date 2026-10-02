@@ -51,6 +51,8 @@ class SetupViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             when (val result = HostelClient().use { it.login(state.rollNo, state.password) }) {
                 is ApiResult.Success -> {
+                    // A saved QR belongs to whoever was signed in before.
+                    container.qr.clear()
                     credentialStore.save(state.rollNo, state.password)
                     appPreferences.reminderHour = state.reminderHour
                     appPreferences.reminderMinute = state.reminderMinute

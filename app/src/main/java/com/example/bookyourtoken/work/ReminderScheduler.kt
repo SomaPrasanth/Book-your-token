@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 object ReminderScheduler {
     private const val DAILY_WORK_NAME = "daily_token_reminder"
     private const val CHECK_NOW_WORK_NAME = "daily_token_reminder_now"
+    private const val QR_READY_WORK_NAME = "daily_qr_ready_check"
 
     fun schedule(context: Context) {
         val prefs = context.appContainer.preferences
@@ -30,6 +31,22 @@ object ReminderScheduler {
 
     fun cancel(context: Context) {
         WorkManager.getInstance(context).cancelUniqueWork(DAILY_WORK_NAME)
+    }
+
+    /** The optional morning "QR ready" check: planned when switched on, cancelled when off. */
+    fun scheduleQrReady(context: Context) {
+        val container = context.appContainer
+        val prefs = container.preferences
+        if (!prefs.qrReadyEnabled || !container.credentials.hasCredentials()) return cancelQrReady(context)
+        val request = OneTimeWorkRequestBuilder<QrReadyWorker>()
+            .setInitialDelay(computeInitialDelayMillis(prefs.qrReadyHour, prefs.qrReadyMinute), TimeUnit.MILLISECONDS)
+            .build()
+        WorkManager.getInstance(context)
+            .enqueueUniqueWork(QR_READY_WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+    }
+
+    fun cancelQrReady(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(QR_READY_WORK_NAME)
     }
 
     /** Runs the reminder logic immediately, without disturbing the regular daily schedule. */

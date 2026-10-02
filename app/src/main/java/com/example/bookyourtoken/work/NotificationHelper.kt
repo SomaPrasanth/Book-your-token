@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.bookyourtoken.MainActivity
 import com.example.bookyourtoken.R
+import com.example.bookyourtoken.data.QrReadyCheck
 import com.example.bookyourtoken.data.ReminderCheck
 
 object NotificationHelper {
@@ -21,6 +22,7 @@ object NotificationHelper {
     const val CHANNEL_ID = "token_reminder_v2"
     private const val LEGACY_CHANNEL_ID = "token_reminder"
     private const val NOTIFICATION_ID = 1001
+    private const val QR_NOTIFICATION_ID = 1002
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -64,11 +66,44 @@ object NotificationHelper {
             .setAutoCancel(true)
             .build()
 
+        notifyIfAllowed(context, NOTIFICATION_ID, notification)
+    }
+
+    /** "Your food QR is ready" — tapping it opens the QR screen. */
+    fun postQrReady(context: Context) {
+        ensureChannel(context)
+
+        // SINGLE_TOP delivers the intent to a running MainActivity (onNewIntent) instead of ignoring it.
+        val openIntent = Intent(context, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_SHOW_QR
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            2,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(QrReadyCheck.NOTIFICATION_TITLE)
+            .setContentText(QrReadyCheck.NOTIFICATION_BODY)
+            .setContentIntent(contentIntent)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setAutoCancel(true)
+            .build()
+
+        notifyIfAllowed(context, QR_NOTIFICATION_ID, notification)
+    }
+
+    private fun notifyIfAllowed(context: Context, id: Int, notification: android.app.Notification) {
         val canPost = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED
         if (canPost) {
-            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+            NotificationManagerCompat.from(context).notify(id, notification)
         }
     }
 }

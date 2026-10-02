@@ -6,6 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.example.bookyourtoken.data.AppPreferences
 import com.example.bookyourtoken.data.CredentialStore
+import com.example.bookyourtoken.data.QrStore
 import com.example.bookyourtoken.work.NotificationHelper
 import com.russhwolf.settings.SharedPreferencesSettings
 
@@ -19,7 +20,8 @@ class HostelApp : Application() {
                 SharedPreferencesSettings(getSharedPreferences(AppPreferences.ANDROID_PREFS_NAME, MODE_PRIVATE))
             ),
             reminders = AndroidReminders(this),
-            platform = AndroidPlatformActions(this)
+            platform = AndroidPlatformActions(this),
+            qr = QrStore(AndroidPrivateFiles(this))
         )
     }
 

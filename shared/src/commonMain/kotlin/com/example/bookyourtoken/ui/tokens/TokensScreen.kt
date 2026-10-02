@@ -79,6 +79,7 @@ import com.example.bookyourtoken.ui.theme.successContainerColor
 fun TokensScreen(
     onOpenSettings: () -> Unit,
     onOpenMyTokens: () -> Unit,
+    onOpenQr: () -> Unit,
     tokensChanged: Boolean,
     onTokensChangedHandled: () -> Unit,
     viewModel: TokensViewModel
@@ -151,7 +152,8 @@ fun TokensScreen(
                         onMeal = viewModel::setMeal,
                         onQuantity = viewModel::setQuantity,
                         onOpenPortal = openPortal,
-                        onManageBooked = onOpenMyTokens
+                        onManageBooked = onOpenMyTokens,
+                        onOpenQr = onOpenQr
                     )
                 }
             }
@@ -231,13 +233,28 @@ private fun LoadedContent(
     onMeal: (TokenItem, String) -> Unit,
     onQuantity: (TokenItem, Int) -> Unit,
     onOpenPortal: () -> Unit,
-    onManageBooked: () -> Unit
+    onManageBooked: () -> Unit,
+    onOpenQr: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (state.qrAvailable) {
+            item(key = "qr") {
+                Button(
+                    onClick = onOpenQr,
+                    contentPadding = PaddingValues(vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(AppIcons.QrCode, contentDescription = null, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Show today's QR", style = MaterialTheme.typography.titleMedium)
+                }
+            }
+        }
+
         if (state.bookedTomorrow.isNotEmpty()) {
             item(key = "booked") { BookedSummaryCard(state.bookedTomorrow, onManage = onManageBooked) }
         }

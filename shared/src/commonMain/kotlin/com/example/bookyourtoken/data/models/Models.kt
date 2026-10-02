@@ -26,6 +26,12 @@ data class BookedToken(
     val mealTime: String?,
     val count: Int?
 ) {
+    /**
+     * The portal has enabled the QR for this token (ViewStatus "1"); it greys out "View QR" otherwise.
+     * Always read from the API — never work out when it should be enabled.
+     */
+    val qrEnabled: Boolean get() = viewStatus == "1"
+
     /** "Y" = already issued/used; the site disables Cancel for these. */
     val isUsed: Boolean get() = status == "Y"
 

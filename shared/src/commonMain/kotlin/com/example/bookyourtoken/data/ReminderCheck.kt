@@ -49,3 +49,25 @@ object ReminderCheck {
 
     const val NOTIFICATION_TITLE = "Book tomorrow's food token"
 }
+
+/**
+ * The optional morning "QR ready" check (default off): one login and one StudentGetToken, once a
+ * day — no polling. Only reads ViewStatus; the QR page itself is fetched when the user opens it.
+ */
+object QrReadyCheck {
+    const val NOTIFICATION_TITLE = "Your food QR is ready"
+    const val NOTIFICATION_BODY = "Tap to show it at the counter."
+
+    /** True only when the portal says some token's QR is enabled; false on any failure. */
+    suspend fun run(credentials: CredentialStore): Boolean {
+        val rollNo = credentials.rollNo()
+        val password = credentials.password()
+        if (rollNo.isNullOrBlank() || password.isNullOrBlank()) return false
+
+        return HostelClient().use { client ->
+            if (client.login(rollNo, password) is ApiResult.Failure) return@use false
+            val booked = client.fetchBookedTokens(rollNo) as? ApiResult.Success ?: return@use false
+            booked.data.any { it.qrEnabled }
+        }
+    }
+}
