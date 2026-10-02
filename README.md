@@ -18,8 +18,9 @@ Built with Kotlin Multiplatform: the portal client, parsing, booking/cancel logi
 - **Daily reminder** at a time you choose (default 4:00 PM — bookings close around 5:30 PM the day before). Shows as a pop-up and follows your ringer: sound in ring mode, vibration in vibrate mode, silent in silent mode.
 - **Tomorrow's menu at a glance** — every item on offer for tomorrow, with price, available meals and anything you've already booked.
 - **Quick booking** — tap items, pick the meal and quantity (capped at the portal's limit), review the total, confirm.
+- **Book ahead** — every upcoming date the portal offers, as a row of date chips (or a calendar with only those dates enabled). Each chip shows the item count, a dot if you already have a booking that day, and how many items you've picked. Pick items across several days, then book them all at once after one confirmation grouped by date. Dates whose booking has likely closed (after 5:30 PM the day before) are dimmed but still bookable, because the portal has the final say.
 - **Clear results** — each item shows the portal's own response ("Token Booked", "Token apply time has expired", …).
-- **Simple navigation** — four labelled tabs at the bottom: *Book*, *Booked* (with a badge counting your upcoming tokens), *QR* and *Settings*.
+- **Simple navigation** — five labelled tabs at the bottom: *Tomorrow*, *Ahead*, *Booked* (with a badge counting your upcoming tokens), *QR* and *Settings*.
 - **Booked** — everything you've booked, grouped by date, with a Cancel button for tokens that haven't been used yet.
 - **Screen-reader friendly** — every button says which token it acts on ("Cancel one Boiled Egg, Dinner"), item cards are announced as checkboxes with their state, quantity changes are read out, settings switches are single controls, and section titles are headings.
 - **Skip when already booked** — optionally no reminder on days you've already booked.
@@ -43,10 +44,11 @@ Everything above works the same on both, except the daily reminder:
 
 ## Safety rules the app follows
 
-- **Nothing is ever booked without you tapping _Book now_.** No auto-booking, no booking from the notification.
+- **Nothing is ever booked without you tapping _Book now_.** No auto-booking, no booking from the notification. Book ahead lists every entry, grouped by date, before sending anything.
 - **Nothing is cancelled without a confirmation** that names the exact token, meal, date and quantity. "Cancel all" is a separate, clearly-labelled action with its own warning.
 - **Credentials stay on your phone**, in `EncryptedSharedPreferences` (Android) or the Keychain (iOS). The password is only ever sent in the portal's own login request — never logged or sent anywhere else.
-- **Gentle on the portal**: one background check per day (two if "QR ready" is on), bookings sent one at a time, no polling.
+- **Gentle on the portal**: one background check per day (two if "QR ready" is on), bookings sent one at a time (in date order for Book ahead), no polling. Book ahead reads every upcoming date from the one booking-page fetch, never one request per date.
+- **Dates are sent exactly as the portal lists them** — the dropdown's own `dd-MM-yyyy` string — and only sorted by the parsed date.
 - **The QR is shown exactly as the portal sends it** — never generated, decoded or altered — and only fetched when the portal says a token's QR is enabled (`ViewStatus == "1"`). The offline copy stays in app-private storage and is deleted once every token it covers is in the past, and on sign-out or sign-in.
 - **No blind retries**: if a booking or cancel request gets no response, the app re-reads your bookings to see whether it registered before telling you anything, and never resends it for you.
 
@@ -124,7 +126,8 @@ shared/src/                    Kotlin Multiplatform module — everything both a
 │   │   ├── DateUtils.kt       "Tomorrow" in Asia/Kolkata (kotlinx-datetime)
 │   │   └── models/            TokenItem, BookedToken, BookResult, oresult messages
 │   └── ui/                    Compose Multiplatform screens + ViewModels
-│       ├── setup/ tokens/ booking/ mytokens/ settings/ qr/
+│       ├── setup/ tokens/ ahead/ booking/ mytokens/ settings/ qr/
+│       │   (booking/BookingPipeline.kt is the one booking loop both booking tabs use)
 │       ├── common/            Components, formatting, icons
 │       └── theme/             Colours and typography
 ├── commonTest/                Tests (run on the JVM and on the iOS simulator)
