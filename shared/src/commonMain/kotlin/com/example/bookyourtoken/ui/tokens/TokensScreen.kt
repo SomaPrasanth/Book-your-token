@@ -165,64 +165,6 @@ fun TokensScreen(
 }
 
 @Composable
-private fun LoadingContent(stage: String) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        CircularProgressIndicator()
-        Spacer(Modifier.height(16.dp))
-        Text(stage, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun ErrorContent(message: String, onRetry: () -> Unit, onOpenPortal: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        IconBadge(
-            painter = rememberVectorPainter(Icons.Filled.Warning),
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-            size = 72.dp,
-            iconSize = 36.dp
-        )
-        Spacer(Modifier.height(20.dp))
-        Text("Couldn't load tokens", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onRetry) {
-            Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Try again")
-        }
-        Spacer(Modifier.height(8.dp))
-        OpenPortalButton(onOpenPortal)
-    }
-}
-
-@Composable
-private fun OpenPortalButton(onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick) {
-        Icon(AppIcons.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Open portal in browser")
-    }
-}
-
-@Composable
 private fun LoadedContent(
     state: TokensUiState.Loaded,
     onToggle: (TokenItem) -> Unit,
@@ -242,7 +184,7 @@ private fun LoadedContent(
         }
 
         if (state.bookedTomorrow.isNotEmpty()) {
-            item(key = "booked") { BookedSummaryCard(state.bookedTomorrow, onManage = onManageBooked) }
+            item(key = "booked") { BookedSummaryCard("Booked for tomorrow", state.bookedTomorrow, onManage = onManageBooked) }
         }
 
         if (state.items.isEmpty()) {
@@ -259,7 +201,7 @@ private fun LoadedContent(
                 )
             }
             items(state.items, key = { it.ptokenId }) { item ->
-                TokenCard(
+                TokenItemRow(
                     item = item,
                     selection = state.selections[item.ptokenId],
                     booked = state.bookedFor(item),
@@ -310,43 +252,6 @@ private fun greeting(): String = when (DateUtils.localDateTime(Clock.System.now(
 }
 
 @Composable
-private fun BookedSummaryCard(booked: List<BookedToken>, onManage: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = successContainerColor,
-            contentColor = onSuccessContainerColor
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "Booked for tomorrow",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics { heading() }
-                )
-                TextButton(
-                    onClick = onManage,
-                    colors = ButtonDefaults.textButtonColors(contentColor = onSuccessContainerColor)
-                ) {
-                    Text("View booked")
-                }
-            }
-            booked.forEach {
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(prettyName(it.tokenName ?: "Item"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                    Text("${it.mealTime.orEmpty()} × ${it.tokenQty ?: 1}", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun EmptyMenuCard(dateLabel: String, onOpenPortal: () -> Unit) {
     Card(
         shape = RoundedCornerShape(20.dp),
@@ -372,156 +277,6 @@ private fun EmptyMenuCard(dateLabel: String, onOpenPortal: () -> Unit) {
             OpenPortalButton(onOpenPortal)
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TokenCard(
-    item: TokenItem,
-    selection: Selection?,
-    booked: List<BookedToken>,
-    onToggle: () -> Unit,
-    onMeal: (String) -> Unit,
-    onQuantity: (Int) -> Unit
-) {
-    val selected = selection != null
-    val scheme = MaterialTheme.colorScheme
-    Card(
-        onClick = onToggle,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) scheme.surfaceContainerHigh else scheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 4.dp else 1.dp),
-        border = if (selected) BorderStroke(2.dp, scheme.primary) else BorderStroke(1.dp, scheme.outlineVariant),
-        // The card is one control for screen readers: "Boiled Egg, Lunch · Dinner, ₹12, not checked".
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics {
-                role = Role.Checkbox
-                toggleableState = ToggleableState(selected)
-            }
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .animateContentSize()
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                FoodBadge(item.name, selected = selected)
-                Spacer(Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        prettyName(item.name),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        item.meals.joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = scheme.onSurfaceVariant
-                    )
-                    if (booked.isNotEmpty()) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
-                            Icon(
-                                Icons.Filled.CheckCircle,
-                                contentDescription = null,
-                                tint = successColor,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                "Booked · " + booked.joinToString { "${it.mealTime.orEmpty()} × ${it.tokenQty ?: 1}" },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = successColor
-                            )
-                        }
-                    }
-                }
-                item.price?.let { PriceTag(it) }
-            }
-
-            if (selection != null) {
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = scheme.outlineVariant)
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "Meal",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = scheme.onSurfaceVariant,
-                    modifier = Modifier.semantics { heading() }
-                )
-                Spacer(Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    item.meals.forEachIndexed { index, meal ->
-                        SegmentedButton(
-                            selected = selection.meal == meal,
-                            onClick = { onMeal(meal) },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = item.meals.size)
-                        ) {
-                            Text(meal)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Quantity", style = MaterialTheme.typography.labelLarge, color = scheme.onSurfaceVariant)
-                        Text("Up to ${item.maxQty}", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
-                    }
-                    QuantityStepper(
-                        itemName = prettyName(item.name),
-                        quantity = selection.quantity,
-                        max = item.maxQty,
-                        onChange = onQuantity
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PriceTag(price: String) {
-    Surface(
-        shape = RoundedCornerShape(50),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-    ) {
-        Text(price, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-    }
-}
-
-@Composable
-private fun QuantityStepper(itemName: String, quantity: Int, max: Int, onChange: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        FilledTonalIconButton(onClick = { onChange(quantity - 1) }, enabled = quantity > 1) {
-            Icon(AppIcons.Remove, contentDescription = "Fewer $itemName")
-        }
-        Text(
-            "$quantity",
-            style = MaterialTheme.typography.titleLarge,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .widthIn(min = 40.dp)
-                // Announced whenever it changes, so screen-reader users hear the new quantity.
-                .semantics {
-                    contentDescription = "Quantity $quantity of $max"
-                    liveRegion = LiveRegionMode.Polite
-                }
-        )
-        FilledTonalIconButton(onClick = { onChange(quantity + 1) }, enabled = quantity < max) {
-            Icon(Icons.Filled.Add, contentDescription = "More $itemName")
-        }
-    }
-}
-
-/** Sum of price × quantity, or null if any selected item has no usable price. */
-private fun estimatedTotal(selected: List<Pair<TokenItem, Selection>>): Int? {
-    if (selected.isEmpty()) return null
-    val parts = selected.map { (item, sel) -> priceValue(item.price)?.times(sel.quantity) }
-    return if (parts.any { it == null }) null else parts.sumOf { it!! }
 }
 
 @Composable

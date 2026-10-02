@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -14,6 +16,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +37,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.bookyourtoken.AppContainer
+import com.example.bookyourtoken.ui.ahead.BookAheadScreen
+import com.example.bookyourtoken.ui.ahead.BookAheadViewModel
 import com.example.bookyourtoken.ui.common.AppIcons
 import com.example.bookyourtoken.ui.common.LocalPlatformActions
 import com.example.bookyourtoken.ui.mytokens.MyTokensScreen
@@ -53,27 +58,35 @@ import kotlinx.coroutines.withContext
 private object Routes {
     const val SETUP = "setup"
     const val TOKENS = "tokens"
+    const val AHEAD = "book_ahead"
     const val MY_TOKENS = "my_tokens"
     const val SETTINGS = "settings"
     const val QR = "qr"
 }
 
-/** The four sections, always visible as labelled tabs once signed in — no hidden icon menus. */
-private enum class Tab(val route: String, val label: String, val icon: () -> ImageVector) {
-    Book(Routes.TOKENS, "Book", { AppIcons.Restaurant }),
+/** The sections, always visible as labelled tabs once signed in — no hidden icon menus. */
+private enum class Tab(
+    val route: String,
+    val label: String,
+    val icon: () -> ImageVector,
+    /** Read by screen readers when the label is shortened to fit five tabs. */
+    val spokenLabel: String = label
+) {
+    Tomorrow(Routes.TOKENS, "Tomorrow", { AppIcons.Restaurant }),
+    Ahead(Routes.AHEAD, "Ahead", { Icons.Filled.DateRange }, spokenLabel = "Book ahead"),
     Booked(Routes.MY_TOKENS, "Booked", { AppIcons.ConfirmationNumber }),
     Qr(Routes.QR, "QR", { AppIcons.QrCode }),
     Settings(Routes.SETTINGS, "Settings", { Icons.Filled.Settings })
 }
 
-/** Set on the Tokens back-stack entry by My Tokens after a cancel changed the booked list. */
+/** Set on the Tokens back-stack entry when another screen booked or cancelled something. */
 private const val KEY_TOKENS_CHANGED = "tokens_changed"
 
 /**
  * The whole app UI, shared by Android (MainActivity) and iOS (MainViewController).
  *
  * [startOnQr] opens straight on the QR tab (Android's "Show QR" shortcut and notification), so the
- * Book tab doesn't also start loading behind it. Each increase of [openQrRequest] switches an app
+ * Tomorrow tab doesn't also start loading behind it. Each increase of [openQrRequest] switches an app
  * that's already running to the QR tab.
  */
 @Composable
@@ -98,10 +111,25 @@ private fun AppNavHost(container: AppContainer, startOnQr: Boolean, openQrReques
     // The tab at the bottom of the back stack. Switching tabs returns to it first, so Back from any
     // other tab lands there and the stack never grows.
     var rootRoute by remember { mutableStateOf(startDestination) }
-    // Upcoming booked tokens, shown as a badge on the Booked tab. Reported by Book and Booked.
+    // Upcoming booked tokens, shown as a badge on the Booked tab. Reported by the booking tabs and Booked.
     var upcomingCount by remember { mutableIntStateOf(0) }
+    // Items picked on Book ahead but not booked yet. They live only in that screen, so leaving asks first.
+    var aheadPicked by remember { mutableIntStateOf(0) }
+    var pendingLeave by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    val openTab: (Tab) -> Unit = { tab -> navController.openTab(tab.route, rootRoute) }
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val currentTab = Tab.entries.firstOrNull { it.route == currentRoute }
+
+    val openTab: (Tab) -> Unit = { tab ->
+        val go = { navController.openTab(tab.route, rootRoute) }
+        if (currentTab == Tab.Ahead && tab != Tab.Ahead && aheadPicked > 0) pendingLeave = go else go()
+    }
+
+    // Tomorrow is alive under the other tabs: have it reload when they book or cancel something.
+    val markTokensChanged = {
+        runCatching { navController.getBackStackEntry(Routes.TOKENS) }.getOrNull()
+            ?.savedStateHandle?.set(KEY_TOKENS_CHANGED, true)
+    }
 
     // The offline QR is a redemption credential: drop it as soon as it no longer covers today.
     LaunchedEffect(Unit) {
@@ -111,9 +139,6 @@ private fun AppNavHost(container: AppContainer, startOnQr: Boolean, openQrReques
     LaunchedEffect(openQrRequest) {
         if (openQrRequest > 0 && container.credentials.hasCredentials()) openTab(Tab.Qr)
     }
-
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-    val currentTab = Tab.entries.firstOrNull { it.route == currentRoute }
 
     Scaffold(
         // Each screen draws its own top bar and handles the status bar itself.
@@ -155,13 +180,19 @@ private fun AppNavHost(container: AppContainer, startOnQr: Boolean, openQrReques
                     viewModel = viewModel { TokensViewModel(container) }
                 )
             }
+            composable(Routes.AHEAD) {
+                BookAheadScreen(
+                    onOpenMyTokens = { openTab(Tab.Booked) },
+                    onUpcomingCount = { upcomingCount = it },
+                    onSelectionCount = { aheadPicked = it },
+                    onBackWithSelections = { pendingLeave = { navController.popBackStack() } },
+                    onBooked = { markTokensChanged() },
+                    viewModel = viewModel { BookAheadViewModel(container) }
+                )
+            }
             composable(Routes.MY_TOKENS) {
                 MyTokensScreen(
-                    onTokensChanged = {
-                        // Only matters if Book is alive underneath; otherwise it loads fresh anyway.
-                        runCatching { navController.getBackStackEntry(Routes.TOKENS) }.getOrNull()
-                            ?.savedStateHandle?.set(KEY_TOKENS_CHANGED, true)
-                    },
+                    onTokensChanged = { markTokensChanged() },
                     onOpenQr = { openTab(Tab.Qr) },
                     onUpcomingCount = { upcomingCount = it },
                     viewModel = viewModel { MyTokensViewModel(container) }
@@ -183,6 +214,21 @@ private fun AppNavHost(container: AppContainer, startOnQr: Boolean, openQrReques
                 QrScreen(viewModel = viewModel { QrViewModel(container) })
             }
         }
+    }
+
+    pendingLeave?.let { leave ->
+        AlertDialog(
+            onDismissRequest = { pendingLeave = null },
+            title = { Text(if (aheadPicked == 1) "Discard 1 selected item?" else "Discard $aheadPicked selected items?") },
+            text = { Text("Your Book ahead selections haven't been booked yet.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingLeave = null
+                    leave()
+                }) { Text("Discard") }
+            },
+            dismissButton = { TextButton(onClick = { pendingLeave = null }) { Text("Keep selecting") } }
+        )
     }
 }
 
@@ -214,7 +260,13 @@ private fun AppNavigationBar(current: Tab, upcomingCount: Int, onSelect: (Tab) -
                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     selectedTextColor = MaterialTheme.colorScheme.primary
                 ),
-                label = { Text(tab.label) },
+                label = {
+                    Text(
+                        tab.label,
+                        maxLines = 1,
+                        modifier = Modifier.semantics { contentDescription = tab.spokenLabel }
+                    )
+                },
                 icon = {
                     if (tab == Tab.Booked && upcomingCount > 0) {
                         BadgedBox(

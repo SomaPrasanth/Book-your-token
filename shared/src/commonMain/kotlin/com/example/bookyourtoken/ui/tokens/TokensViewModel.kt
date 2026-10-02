@@ -9,6 +9,9 @@ import com.example.bookyourtoken.data.TokenPageParser
 import com.example.bookyourtoken.data.models.ApiResult
 import com.example.bookyourtoken.data.models.BookedToken
 import com.example.bookyourtoken.data.models.TokenItem
+import com.example.bookyourtoken.ui.booking.BookingLine
+import com.example.bookyourtoken.ui.booking.BookingUiState
+import com.example.bookyourtoken.ui.booking.runBookings
 import com.example.bookyourtoken.ui.mytokens.countUpcoming
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,27 +39,6 @@ sealed interface TokensUiState {
 
         fun bookedFor(item: TokenItem): List<BookedToken> = bookedTomorrow.filter { it.tokenId == item.ptokenId }
     }
-}
-
-sealed interface LineStatus {
-    data object Pending : LineStatus
-    data object Sending : LineStatus
-    data class Done(val success: Boolean, val message: String) : LineStatus
-}
-
-data class BookingLine(
-    val item: TokenItem,
-    val meal: String,
-    val quantity: Int,
-    val status: LineStatus = LineStatus.Pending
-)
-
-data class BookingUiState(
-    val lines: List<BookingLine>,
-    val finished: Boolean = false
-) {
-    val bookedCount: Int get() = lines.count { (it.status as? LineStatus.Done)?.success == true }
-    val failedCount: Int get() = lines.count { (it.status as? LineStatus.Done)?.success == false }
 }
 
 class TokensViewModel(private val container: AppContainer) : ViewModel() {
@@ -168,80 +150,12 @@ class TokensViewModel(private val container: AppContainer) : ViewModel() {
         if (selected.isEmpty()) return
 
         _showConfirmDialog.value = false
-        val lines = selected.map { (item, sel) -> BookingLine(item, sel.meal, sel.quantity) }.toMutableList()
-        _bookingState.value = BookingUiState(lines.toList())
+        // The date the confirm dialog showed, sent exactly as the portal's dropdown spells it.
+        val lines = selected.map { (item, sel) -> BookingLine(item, sel.meal, sel.quantity, current.tomorrowDate) }
 
         viewModelScope.launch {
-            fun failAll(message: String) {
-                _bookingState.value = BookingUiState(
-                    lines.map { it.copy(status = LineStatus.Done(false, message)) },
-                    finished = true
-                )
-            }
-
-            val rollNo = credentialStore.rollNo()
-            val password = credentialStore.password()
-            if (rollNo.isNullOrBlank() || password.isNullOrBlank()) return@launch failAll("No saved credentials.")
-
-            HostelClient().use { client ->
-                val login = client.login(rollNo, password)
-                if (login is ApiResult.Failure) return@launch failAll(login.message)
-
-                // The portal populates server-side session state (balance, mess id) when StudentView
-                // and StudentGetToken load; booking in a session that skipped them returns oresult 6.
-                val page = client.fetchBookingPageHtml()
-                if (page is ApiResult.Failure) return@launch failAll(page.message)
-                val bookedBefore = (client.fetchBookedTokens(rollNo) as? ApiResult.Success)?.data.orEmpty()
-
-                val tomorrow = DateUtils.tomorrowString()
-
-                // Sequential, one item at a time — matches how the site itself submits bookings.
-                for (i in lines.indices) {
-                    lines[i] = lines[i].copy(status = LineStatus.Sending)
-                    _bookingState.value = BookingUiState(lines.toList())
-
-                    val line = lines[i]
-                    val status = when (val result = client.bookToken(line.item.ptokenId, line.quantity, tomorrow, line.meal)) {
-                        is ApiResult.Success -> LineStatus.Done(result.data.success, result.data.message)
-                        is ApiResult.Failure ->
-                            if (result.isTimeout) verifyAfterTimeout(client, rollNo, line, tomorrow, bookedBefore)
-                            else LineStatus.Done(false, result.message)
-                    }
-
-                    lines[i] = lines[i].copy(status = status)
-                    _bookingState.value = BookingUiState(lines.toList(), finished = i == lines.lastIndex)
-                }
-            }
-
+            runBookings(credentialStore, lines) { _bookingState.value = it }
             refresh()
-        }
-    }
-
-    /**
-     * Never blindly retry a booking that got no response. Compare the booked quantity for this
-     * item/meal against the snapshot taken before sending — an existing booking alone doesn't prove
-     * this request went through when topping up.
-     */
-    private suspend fun verifyAfterTimeout(
-        client: HostelClient,
-        rollNo: String,
-        line: BookingLine,
-        tomorrow: String,
-        bookedBefore: List<BookedToken>
-    ): LineStatus {
-        fun List<BookedToken>.quantityFor() = filter {
-            it.tokenId == line.item.ptokenId && it.expireDate == tomorrow && it.mealTime == line.meal
-        }.sumOf { it.tokenQty ?: 1 }
-
-        val after = client.fetchBookedTokens(rollNo) as? ApiResult.Success
-            ?: return LineStatus.Done(false, "No response and couldn't verify. Check the portal before retrying.")
-
-        // A missing increase isn't proof of failure (top-ups may not show in the list), so never
-        // tell the user it's safe to resend — that could double-book.
-        return if (after.data.quantityFor() > bookedBefore.quantityFor()) {
-            LineStatus.Done(true, "Token Booked (confirmed by re-checking)")
-        } else {
-            LineStatus.Done(false, "No response — couldn't confirm it went through. Check the portal before retrying.")
         }
     }
 }

@@ -26,6 +26,7 @@ kotlin {
             api(libs.compose.ui)
             api(libs.compose.material3)
             implementation(libs.compose.material.icons.core)
+            implementation(libs.compose.ui.backhandler)
             api(libs.lifecycle.viewmodel.compose)
             implementation(libs.lifecycle.runtime.compose)
             implementation(libs.navigation.compose)

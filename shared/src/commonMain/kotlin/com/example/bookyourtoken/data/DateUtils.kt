@@ -51,9 +51,26 @@ object DateUtils {
 
     fun dateOf(instant: Instant): LocalDate = localDateTime(instant).date
 
+    /** The hostel's wall-clock time right now. */
+    fun now(): LocalDateTime = localDateTime(Clock.System.now())
+
     /** e.g. "Tuesday, 29 Sep" */
     fun friendlyLabel(date: LocalDate): String =
         "${date.dayOfWeek.displayName()}, ${date.day} ${date.month.shortName()}"
+
+    /** e.g. "Sun 04 Oct" */
+    fun shortLabel(date: LocalDate): String =
+        "${weekdayShort(date)} ${date.day.pad2()} ${date.month.shortName()}"
+
+    /** e.g. "Oct" */
+    fun monthShort(date: LocalDate): String = date.month.shortName()
+
+    /** e.g. "Sun" */
+    fun weekdayShort(date: LocalDate): String = date.dayOfWeek.displayName().take(3)
+
+    /** e.g. "Sunday 4 October", for screen readers. */
+    fun spokenLabel(date: LocalDate): String =
+        "${date.dayOfWeek.displayName()} ${date.day} ${date.month.name.lowercase().replaceFirstChar { it.uppercase() }}"
 
     private fun Int.pad2(): String = toString().padStart(2, '0')
 

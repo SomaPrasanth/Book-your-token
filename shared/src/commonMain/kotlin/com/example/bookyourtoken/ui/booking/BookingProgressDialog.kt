@@ -1,6 +1,8 @@
 package com.example.bookyourtoken.ui.booking
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,14 +22,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import com.example.bookyourtoken.data.DateUtils
+import com.example.bookyourtoken.ui.ahead.dateHeading
 import com.example.bookyourtoken.ui.common.AppIcons
 import com.example.bookyourtoken.ui.common.prettyName
 import com.example.bookyourtoken.ui.theme.successColor
-import com.example.bookyourtoken.ui.tokens.BookingLine
-import com.example.bookyourtoken.ui.tokens.BookingUiState
-import com.example.bookyourtoken.ui.tokens.LineStatus
 
 @Composable
 fun BookingProgressDialog(
@@ -57,14 +60,32 @@ fun BookingProgressDialog(
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                state.lines.forEach { LineRow(it) }
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                if (state.groupByDate) {
+                    val today = DateUtils.today()
+                    // Lines arrive in date order, and groupBy keeps that order.
+                    state.lines.groupBy { it.date }.forEach { (date, lines) ->
+                        Text(
+                            dateHeading(date, today),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.semantics { heading() }
+                        )
+                        lines.forEach { LineRow(it) }
+                    }
+                } else {
+                    state.lines.forEach { LineRow(it) }
+                }
                 if (finished) {
                     Text(
                         "${state.bookedCount} booked, ${state.failedCount} failed",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (state.groupByDate) FailureHints(state)
                 }
             }
         },
@@ -72,6 +93,26 @@ fun BookingProgressDialog(
             if (finished) Button(onClick = onDismiss) { Text("Done") }
         }
     )
+}
+
+/** Booking several days makes the portal's token limit (9) and closing time (3) likelier — say so plainly. */
+@Composable
+private fun FailureHints(state: BookingUiState) {
+    if (state.anyFailedWith(9)) {
+        Text(
+            "The portal's token limit was reached for some entries. The rest were still sent. " +
+                "Unbooked ones stay selected.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error
+        )
+    }
+    if (state.anyFailedWith(3)) {
+        Text(
+            "Booking had already closed for some dates (the portal stops at 5:30 PM the day before).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
 
 @Composable
