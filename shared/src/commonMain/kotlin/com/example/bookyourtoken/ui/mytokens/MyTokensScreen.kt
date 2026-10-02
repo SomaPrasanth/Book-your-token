@@ -29,8 +29,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,8 +39,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +62,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.bookyourtoken.data.models.BookedToken
 import com.example.bookyourtoken.ui.common.AppIcons
+import com.example.bookyourtoken.ui.common.BrandHeader
+import com.example.bookyourtoken.ui.common.FoodBadge
 import com.example.bookyourtoken.ui.common.IconBadge
 import com.example.bookyourtoken.ui.common.prettyName
 import com.example.bookyourtoken.ui.theme.successColor
@@ -92,14 +92,14 @@ fun MyTokensScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Booked tokens") },
+            BrandHeader(
+                title = "Booked tokens",
+                subtitle = "Everything you've booked",
                 actions = {
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh booked tokens")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                }
             )
         }
     ) { padding ->
@@ -184,18 +184,15 @@ private fun BookedTokenCard(token: BookedToken, onCancel: () -> Unit, onCancelAl
     val which = "$name, ${token.mealTime.orEmpty()}"
 
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow),
         border = BorderStroke(1.dp, scheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(
-                painter = rememberVectorPainter(AppIcons.Restaurant),
-                containerColor = if (token.isUsed) scheme.surfaceVariant else scheme.primaryContainer,
-                contentColor = if (token.isUsed) scheme.onSurfaceVariant else scheme.onPrimaryContainer
-            )
-            Spacer(Modifier.width(12.dp))
+            FoodBadge(token.tokenName.orEmpty(), dimmed = token.isUsed)
+            Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -270,13 +267,7 @@ private fun EmptyContent() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            IconBadge(
-                painter = rememberVectorPainter(AppIcons.Restaurant),
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                size = 72.dp,
-                iconSize = 34.dp
-            )
+            FoodBadge("", size = 72.dp)
             Spacer(Modifier.height(16.dp))
             Text("No tokens booked.", style = MaterialTheme.typography.titleMedium)
         }

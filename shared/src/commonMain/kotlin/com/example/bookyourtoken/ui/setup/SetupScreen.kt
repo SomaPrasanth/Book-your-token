@@ -39,7 +39,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -50,7 +49,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.bookyourtoken.ui.common.AppIcons
-import com.example.bookyourtoken.ui.common.IconBadge
+import com.example.bookyourtoken.ui.common.BrandHeader
+import com.example.bookyourtoken.ui.common.FoodBadge
 import com.example.bookyourtoken.ui.common.TimePickerDialog
 import com.example.bookyourtoken.ui.common.formatTime
 
@@ -68,7 +68,15 @@ fun SetupScreen(
         viewModel.signIn(onSuccess = onSaved)
     }
 
-    Scaffold { padding ->
+    Scaffold(
+        topBar = {
+            BrandHeader(
+                eyebrow = "PSG Tech hostel",
+                title = "Book your token",
+                subtitle = "Food tokens in a couple of taps"
+            )
+        }
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -78,15 +86,11 @@ fun SetupScreen(
                 .padding(horizontal = 24.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            IconBadge(
-                painter = rememberVectorPainter(AppIcons.Restaurant),
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                size = 80.dp,
-                iconSize = 40.dp
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                listOf("BOILED EGG", "CHICKEN", "MUSHROOM", "SNACKS").forEach { FoodBadge(it, size = 56.dp) }
+            }
             Spacer(Modifier.height(20.dp))
-            Text("Book your token", style = MaterialTheme.typography.headlineMedium)
+            Text("Sign in", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(8.dp))
             Text(
                 "A daily reminder and quick booking for PSG hostel food tokens. Sign in with your hostel portal account.",
@@ -185,7 +189,7 @@ fun SetupScreen(
                 enabled = state.canSubmit,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(56.dp)
             ) {
                 if (state.isSigningIn) {
                     CircularProgressIndicator(

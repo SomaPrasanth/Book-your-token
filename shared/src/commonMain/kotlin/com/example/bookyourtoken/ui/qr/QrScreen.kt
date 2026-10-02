@@ -36,8 +36,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -57,6 +55,7 @@ import com.example.bookyourtoken.data.DateUtils
 import com.example.bookyourtoken.data.HostelClient
 import com.example.bookyourtoken.data.QrTokenRow
 import com.example.bookyourtoken.ui.common.AppIcons
+import com.example.bookyourtoken.ui.common.BrandHeader
 import com.example.bookyourtoken.ui.common.IconBadge
 import com.example.bookyourtoken.ui.common.LocalPlatformActions
 import com.example.bookyourtoken.ui.common.formatTime
@@ -72,14 +71,14 @@ fun QrScreen(viewModel: QrViewModel) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Food token QR") },
+            BrandHeader(
+                title = "Food token QR",
+                subtitle = "Show this at the mess counter",
                 actions = {
                     IconButton(onClick = viewModel::refresh, enabled = uiState !is QrUiState.Loading) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh QR")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                }
             )
         }
     ) { padding ->

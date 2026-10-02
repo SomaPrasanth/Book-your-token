@@ -34,8 +34,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +51,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.bookyourtoken.data.HostelClient
 import com.example.bookyourtoken.ui.common.AppIcons
+import com.example.bookyourtoken.ui.common.BrandHeader
 import com.example.bookyourtoken.ui.common.LocalPlatformActions
 import com.example.bookyourtoken.ui.common.SectionHeader
 import com.example.bookyourtoken.ui.common.TimePickerDialog
@@ -82,10 +81,7 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Settings") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
-            )
+            BrandHeader(title = "Settings", subtitle = state.rollNo?.let { "Signed in as $it" })
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
@@ -286,8 +282,9 @@ private enum class TimePickerTarget { Reminder, QrReady }
 @Composable
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier.fillMaxWidth(),
         content = content
     )
