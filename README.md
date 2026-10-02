@@ -19,9 +19,11 @@ Built with Kotlin Multiplatform: the portal client, parsing, booking/cancel logi
 - **Tomorrow's menu at a glance** — every item on offer for tomorrow, with price, available meals and anything you've already booked.
 - **Quick booking** — tap items, pick the meal and quantity (capped at the portal's limit), review the total, confirm.
 - **Clear results** — each item shows the portal's own response ("Token Booked", "Token apply time has expired", …).
-- **My tokens** — everything you've booked, grouped by date, with a Cancel button for tokens that haven't been used yet.
+- **Simple navigation** — four labelled tabs at the bottom: *Book*, *Booked* (with a badge counting your upcoming tokens), *QR* and *Settings*.
+- **Booked** — everything you've booked, grouped by date, with a Cancel button for tokens that haven't been used yet.
+- **Screen-reader friendly** — every button says which token it acts on ("Cancel one Boiled Egg, Dinner"), item cards are announced as checkboxes with their state, quantity changes are read out, settings switches are single controls, and section titles are headings.
 - **Skip when already booked** — optionally no reminder on days you've already booked.
-- **Food token QR** — once the portal enables a token's QR, a *Show today's QR* button appears (and *Show QR* on that token in My tokens). The QR is shown large on white, at full brightness with the screen kept on, above the list of tokens it covers. A copy is kept for when the mess hall has no signal ("Offline copy from 7:42 AM — may be outdated").
+- **Food token QR** — once the portal enables a token's QR, a *Show today's QR* button appears (and *Show QR* on that token in Booked). The QR is shown large on white, at full brightness with the screen kept on, above the list of tokens it covers. A copy is kept for when the mess hall has no signal ("Offline copy from 7:42 AM — may be outdated").
 - **Optional "QR ready" notification** (Android, off by default) — one morning check that tells you when your QR is enabled.
 
 ### Android vs iOS

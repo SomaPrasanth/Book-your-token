@@ -39,6 +39,14 @@ object AppIcons {
         )
     }
 
+    /** Material "confirmation_number" — a ticket, for booked tokens. */
+    val ConfirmationNumber: ImageVector by lazy {
+        icon(
+            "ConfirmationNumber",
+            "M22,10V6c0,-1.11 -0.9,-2 -2,-2H4c-1.1,0 -1.99,0.89 -1.99,2v4c1.1,0 1.99,0.9 1.99,2s-0.89,2 -2,2v4c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2v-4c-1.1,0 -2,-0.9 -2,-2s0.9,-2 2,-2zM13,17.5h-2v-2h2v2zM13,13h-2v-2h2v2zM13,8.5h-2v-2h2v2z"
+        )
+    }
+
     val Remove: ImageVector by lazy { icon("Remove", "M19,13H5v-2h14v2z") }
 
     val Visibility: ImageVector by lazy {

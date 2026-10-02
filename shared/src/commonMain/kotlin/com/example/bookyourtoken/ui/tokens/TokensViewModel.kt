@@ -9,6 +9,7 @@ import com.example.bookyourtoken.data.TokenPageParser
 import com.example.bookyourtoken.data.models.ApiResult
 import com.example.bookyourtoken.data.models.BookedToken
 import com.example.bookyourtoken.data.models.TokenItem
+import com.example.bookyourtoken.ui.mytokens.countUpcoming
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +26,8 @@ sealed interface TokensUiState {
         val bookedTomorrow: List<BookedToken>,
         /** Some booked token has ViewStatus "1" — the portal has enabled its QR. */
         val qrAvailable: Boolean = false,
+        /** Booked tokens from today on, for the Booked tab's badge. */
+        val upcomingCount: Int = 0,
         val selections: Selections = emptyMap(),
         val isRefreshing: Boolean = false
     ) : TokensUiState {
@@ -121,7 +124,8 @@ class TokensViewModel(private val container: AppContainer) : ViewModel() {
                     tomorrowLabel = DateUtils.friendlyLabel(DateUtils.tomorrow()),
                     items = items.filter { tomorrow in it.dates },
                     bookedTomorrow = bookedTomorrow,
-                    qrAvailable = booked.any { it.qrEnabled }
+                    qrAvailable = booked.any { it.qrEnabled },
+                    upcomingCount = countUpcoming(booked, DateUtils.today())
                 )
                 if (bookedTomorrow.isNotEmpty()) container.reminders.onTomorrowBooked()
             }

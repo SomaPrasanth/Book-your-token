@@ -16,7 +16,11 @@ import kotlinx.coroutines.launch
 sealed interface MyTokensUiState {
     data object Loading : MyTokensUiState
     data class Error(val message: String) : MyTokensUiState
-    data class Loaded(val groups: List<TokenGroup>, val isRefreshing: Boolean = false) : MyTokensUiState
+    data class Loaded(
+        val groups: List<TokenGroup>,
+        val upcomingCount: Int,
+        val isRefreshing: Boolean = false
+    ) : MyTokensUiState
 }
 
 sealed interface CancelUiState {
@@ -167,6 +171,7 @@ class MyTokensViewModel(container: AppContainer) : ViewModel() {
     }
 
     private fun show(tokens: List<BookedToken>) {
-        _uiState.value = MyTokensUiState.Loaded(groupTokensByDate(tokens, DateUtils.today()))
+        val today = DateUtils.today()
+        _uiState.value = MyTokensUiState.Loaded(groupTokensByDate(tokens, today), countUpcoming(tokens, today))
     }
 }

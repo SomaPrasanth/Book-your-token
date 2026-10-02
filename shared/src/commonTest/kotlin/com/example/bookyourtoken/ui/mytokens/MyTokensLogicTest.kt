@@ -48,4 +48,17 @@ class MyTokensLogicTest {
         assertEquals(3, quantityOf(rows, token("EGG GRAVY", "29-09-2026", "Dinner")))
         assertEquals(0, quantityOf(emptyList(), token("EGG GRAVY", "29-09-2026", "Dinner")))
     }
+
+    @Test
+    fun `badge counts unused tokens from today on`() {
+        val used = token("OMELETTE", "28-09-2026", "Breakfast").copy(status = "Y")
+        val tokens = listOf(
+            token("SNACKS", "27-09-2026", "Lunch"),
+            used,
+            token("BOILED EGG", "28-09-2026", "Dinner"),
+            token("CHICKEN", "30-09-2026", "Dinner", qty = 2),
+            token("A", "garbage", "Lunch")
+        )
+        assertEquals(2, countUpcoming(tokens, today))
+    }
 }
