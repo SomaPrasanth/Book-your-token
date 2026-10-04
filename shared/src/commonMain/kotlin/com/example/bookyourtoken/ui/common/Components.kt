@@ -40,6 +40,8 @@ import com.example.bookyourtoken.ui.theme.BrandGradient
 fun TimePickerDialog(
     initialHour: Int,
     initialMinute: Int,
+    title: String = "Daily reminder time",
+    confirmLabel: String = "Save",
     onDismiss: () -> Unit,
     onConfirm: (hour: Int, minute: Int) -> Unit
 ) {
@@ -55,7 +57,7 @@ fun TimePickerDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Daily reminder time",
+                    text = title,
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
@@ -68,7 +70,7 @@ fun TimePickerDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) { Text("Cancel") }
-                    TextButton(onClick = { onConfirm(state.hour, state.minute) }) { Text("Save") }
+                    TextButton(onClick = { onConfirm(state.hour, state.minute) }) { Text(confirmLabel) }
                 }
             }
         }

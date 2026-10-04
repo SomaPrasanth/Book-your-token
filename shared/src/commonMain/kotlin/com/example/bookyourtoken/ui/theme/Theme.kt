@@ -108,3 +108,14 @@ val onSuccessContainerColor: Color
     @Composable
     @ReadOnlyComposable
     get() = if (isSystemInDarkTheme()) OnSuccessContainerDark else OnSuccessContainerLight
+
+/** Blue for "waiting on someone else" states, like a leave that's still Applied. */
+val infoContainerColor: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (isSystemInDarkTheme()) InfoContainerDark else InfoContainerLight
+
+val onInfoContainerColor: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = if (isSystemInDarkTheme()) OnInfoContainerDark else OnInfoContainerLight

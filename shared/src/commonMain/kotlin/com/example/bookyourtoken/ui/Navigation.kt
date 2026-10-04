@@ -3,6 +3,7 @@ package com.example.bookyourtoken.ui
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Settings
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -41,6 +43,10 @@ import com.example.bookyourtoken.ui.ahead.BookAheadScreen
 import com.example.bookyourtoken.ui.ahead.BookAheadViewModel
 import com.example.bookyourtoken.ui.common.AppIcons
 import com.example.bookyourtoken.ui.common.LocalPlatformActions
+import com.example.bookyourtoken.ui.leave.LeaveApplyScreen
+import com.example.bookyourtoken.ui.leave.LeaveApplyViewModel
+import com.example.bookyourtoken.ui.leave.LeaveScreen
+import com.example.bookyourtoken.ui.leave.LeaveViewModel
 import com.example.bookyourtoken.ui.mytokens.MyTokensScreen
 import com.example.bookyourtoken.ui.mytokens.MyTokensViewModel
 import com.example.bookyourtoken.ui.qr.QrScreen
@@ -62,6 +68,8 @@ private object Routes {
     const val MY_TOKENS = "my_tokens"
     const val SETTINGS = "settings"
     const val QR = "qr"
+    const val LEAVE = "leave"
+    const val LEAVE_APPLY = "leave_apply"
 }
 
 /** The sections, always visible as labelled tabs once signed in — no hidden icon menus. */
@@ -69,18 +77,22 @@ private enum class Tab(
     val route: String,
     val label: String,
     val icon: () -> ImageVector,
-    /** Read by screen readers when the label is shortened to fit five tabs. */
+    /** Read by screen readers when the label is shortened to fit the bar. */
     val spokenLabel: String = label
 ) {
     Tomorrow(Routes.TOKENS, "Tomorrow", { AppIcons.Restaurant }),
     Ahead(Routes.AHEAD, "Ahead", { Icons.Filled.DateRange }, spokenLabel = "Book ahead"),
     Booked(Routes.MY_TOKENS, "Booked", { AppIcons.ConfirmationNumber }),
     Qr(Routes.QR, "QR", { AppIcons.QrCode }),
+    Leave(Routes.LEAVE, "Leave", { AppIcons.Luggage }),
     Settings(Routes.SETTINGS, "Settings", { Icons.Filled.Settings })
 }
 
 /** Set on the Tokens back-stack entry when another screen booked or cancelled something. */
 private const val KEY_TOKENS_CHANGED = "tokens_changed"
+
+/** Set on the Leave back-stack entry when the apply form sent a request. */
+private const val KEY_LEAVE_CHANGED = "leave_changed"
 
 /**
  * The whole app UI, shared by Android (MainActivity) and iOS (MainViewController).
@@ -213,6 +225,32 @@ private fun AppNavHost(container: AppContainer, startOnQr: Boolean, openQrReques
             composable(Routes.QR) {
                 QrScreen(viewModel = viewModel { QrViewModel(container) })
             }
+            composable(Routes.LEAVE) { entry ->
+                val leaveChanged by entry.savedStateHandle
+                    .getStateFlow(KEY_LEAVE_CHANGED, false)
+                    .collectAsStateWithLifecycle()
+                LeaveScreen(
+                    onApply = { navController.navigate(Routes.LEAVE_APPLY) { launchSingleTop = true } },
+                    historyChanged = leaveChanged,
+                    onHistoryChangedHandled = { entry.savedStateHandle[KEY_LEAVE_CHANGED] = false },
+                    viewModel = viewModel { LeaveViewModel(container) }
+                )
+            }
+            // Over the Leave tab, without the bottom bar. Back returns to the history.
+            composable(Routes.LEAVE_APPLY) {
+                LeaveApplyScreen(
+                    onSent = {
+                        runCatching { navController.getBackStackEntry(Routes.LEAVE) }.getOrNull()
+                            ?.savedStateHandle?.set(KEY_LEAVE_CHANGED, true)
+                    },
+                    onClose = {
+                        if (navController.currentBackStackEntry?.destination?.route == Routes.LEAVE_APPLY) {
+                            navController.popBackStack()
+                        }
+                    },
+                    viewModel = viewModel { LeaveApplyViewModel(container) }
+                )
+            }
         }
     }
 
@@ -261,9 +299,12 @@ private fun AppNavigationBar(current: Tab, upcomingCount: Int, onSelect: (Tab) -
                     selectedTextColor = MaterialTheme.colorScheme.primary
                 ),
                 label = {
+                    // Six tabs: on narrow phones "Tomorrow" shrinks a little rather than being cut off.
                     Text(
                         tab.label,
                         maxLines = 1,
+                        softWrap = false,
+                        autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp, stepSize = 0.5.sp),
                         modifier = Modifier.semantics { contentDescription = tab.spokenLabel }
                     )
                 },

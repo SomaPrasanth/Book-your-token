@@ -73,3 +73,10 @@ val SuccessContainerLight = Color(0xFFE6EFCB)
 val OnSuccessContainerLight = Color(0xFF1A2B00)
 val SuccessContainerDark = Color(0xFF2A3612)
 val OnSuccessContainerDark = Color(0xFFD6EBA8)
+
+// "Pending / waiting" blue for leave requests that haven't been decided yet. Muted so it sits
+// beside the saffron without shouting.
+val InfoContainerLight = Color(0xFFDCE6F9)
+val OnInfoContainerLight = Color(0xFF0E2A55)
+val InfoContainerDark = Color(0xFF233756)
+val OnInfoContainerDark = Color(0xFFD5E3FF)

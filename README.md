@@ -20,11 +20,12 @@ Built with Kotlin Multiplatform: the portal client, parsing, booking/cancel logi
 - **Quick booking** — tap items, pick the meal and quantity (capped at the portal's limit), review the total, confirm.
 - **Book ahead** — every upcoming date the portal offers, as a row of date chips (or a calendar with only those dates enabled). Each chip shows the item count, a dot if you already have a booking that day, and how many items you've picked. Pick items across several days, then book them all at once after one confirmation grouped by date. Dates whose booking has likely closed (after 5:30 PM the day before) are dimmed but still bookable, because the portal has the final say.
 - **Clear results** — each item shows the portal's own response ("Token Booked", "Token apply time has expired", …).
-- **Simple navigation** — five labelled tabs at the bottom: *Tomorrow*, *Ahead*, *Booked* (with a badge counting your upcoming tokens), *QR* and *Settings*.
+- **Simple navigation** — six labelled tabs at the bottom: *Tomorrow*, *Ahead*, *Booked* (with a badge counting your upcoming tokens), *QR*, *Leave* and *Settings*.
 - **Booked** — everything you've booked, grouped by date, with a Cancel button for tokens that haven't been used yet.
 - **Screen-reader friendly** — every button says which token it acts on ("Cancel one Boiled Egg, Dinner"), item cards are announced as checkboxes with their state, quantity changes are read out, settings switches are single controls, and section titles are headings.
 - **Skip when already booked** — optionally no reminder on days you've already booked.
 - **Food token QR** — once the portal enables a token's QR, a *Show today's QR* button appears (and *Show QR* on that token in Booked). The QR is shown large on white, at full brightness with the screen kept on, above the list of tokens it covers. A copy is kept for when the mess hall has no signal ("Offline copy from 7:42 AM — may be outdated").
+- **Hostel leave** — your leave history, newest first, with a coloured status for each (Applied, Approved, Rejected, Cancelled). *Apply for leave* opens a form: leave type and approving staff come straight from the portal (the staff list is searchable and remembers who you picked last), From and To each get a date and a time in 5-minute steps, and the reason only accepts what the portal allows. Leaves that are still *Applied* can be cancelled.
 - **Optional "QR ready" notification** (Android, off by default) — one morning check that tells you when your QR is enabled.
 
 ### Android vs iOS
@@ -50,7 +51,8 @@ Everything above works the same on both, except the daily reminder:
 - **Gentle on the portal**: one background check per day (two if "QR ready" is on), bookings sent one at a time (in date order for Book ahead), no polling. Book ahead reads every upcoming date from the one booking-page fetch, never one request per date.
 - **Dates are sent exactly as the portal lists them** — the dropdown's own `dd-MM-yyyy` string — and only sorted by the parsed date.
 - **The QR is shown exactly as the portal sends it** — never generated, decoded or altered — and only fetched when the portal says a token's QR is enabled (`ViewStatus == "1"`). The offline copy stays in app-private storage and is deleted once every token it covers is in the past, and on sign-out or sign-in.
-- **No blind retries**: if a booking or cancel request gets no response, the app re-reads your bookings to see whether it registered before telling you anything, and never resends it for you.
+- **Leave requests go to a real staff member**, so applying always shows who it goes to, the dates and the reason, and waits for *Send request*. Cancelling a leave asks first too, and warns when another Applied leave has the same dates (the portal matches by date only, so it might cancel either one). Leave types and staff are never hardcoded, and nothing leave-related runs in the background.
+- **No blind retries**: if a booking, cancel or leave request gets no response, the app re-reads your bookings or leave history to see whether it registered before telling you anything, and never resends it for you.
 
 ## How it talks to the portal
 
@@ -68,6 +70,18 @@ There's no public API, so the app does what the website does, using the same end
 | 8 | `GET /Hostel/QRCode/QRcodeGenerate` | The QR page (one per student; the server picks the tokens from the session). Only requested when a StudentGetToken row has `ViewStatus == "1"`. The QR is an embedded `data:image/png` (`alt="QR Code"`); the page's hidden inputs are ignored |
 
 The cancel endpoints identify a token by roll number + name + date + meal, using field names that don't match their contents (the site's JavaScript reads them from table columns by position): `ISSUE_DATE` carries the **token name** and `TOKEN_ID` carries the **date**. See `HostelClient.cancelFormFields` — it's covered by a unit test so nobody "fixes" it.
+
+Hostel leave uses five more endpoints. They only need the login cookie (no StudentView first), and the read calls take `?rollno=` in uppercase:
+
+| Request | Purpose |
+|---|---|
+| `GET /Hostel/Student/StudLeaveS` | Leave types (`leave_type` is sent, `leave` is shown) |
+| `GET /Hostel/Student/StudApprMngr` | Approving staff (`staff_id` is sent as `manager`) |
+| `GET /Hostel/Student/StudentGetLeav` | Leave history. Dates are `dd-MM-yyyy hh:mm a`, and rows come back sorted as text, so the app re-sorts them |
+| `POST /Hostel/Student/StudentLeavApply` | Apply. Dates `dd/MM/yyyy` (slashes), times `h:mm` with no leading zero plus `AM`/`PM` (success: `oresult == 1`) |
+| `POST /Hostel/Student/StudentLeavCancel` | Cancel, using the history row's dashed date part as-is, no times (success: `oresult == 1`) |
+
+The formats really do differ between the calls; [`LeaveFormat.kt`](shared/src/commonMain/kotlin/com/example/bookyourtoken/data/LeaveFormat.kt) holds them, with unit tests. A cancelled leave disappears from the history rather than showing *Cancelled*.
 
 Two things learned the hard way:
 
@@ -120,13 +134,14 @@ shared/src/                    Kotlin Multiplatform module — everything both a
 │   │   ├── TokenPageParser.kt Ksoup parsing of the booking page (pure, unit tested)
 │   │   ├── QrPageParser.kt    QR image + token table from the QR page (pure, unit tested)
 │   │   ├── QrStore.kt         Offline QR copy in app-private files; deleted once stale
+│   │   ├── LeaveFormat.kt     The leave endpoints' date/time formats and form fields (unit tested)
 │   │   ├── ReminderCheck.kt   The daily "what's on tomorrow" check
 │   │   ├── CredentialStore.kt Credentials over an encrypted Settings backend
-│   │   ├── AppPreferences.kt  Reminder time and toggles
+│   │   ├── AppPreferences.kt  Reminder time, toggles and the last leave approver
 │   │   ├── DateUtils.kt       "Tomorrow" in Asia/Kolkata (kotlinx-datetime)
-│   │   └── models/            TokenItem, BookedToken, BookResult, oresult messages
+│   │   └── models/            TokenItem, BookedToken, BookResult, leave models, oresult messages
 │   └── ui/                    Compose Multiplatform screens + ViewModels
-│       ├── setup/ tokens/ ahead/ booking/ mytokens/ settings/ qr/
+│       ├── setup/ tokens/ ahead/ booking/ mytokens/ settings/ qr/ leave/
 │       │   (booking/BookingPipeline.kt is the one booking loop both booking tabs use)
 │       ├── common/            Components, formatting, icons
 │       └── theme/             Colours and typography

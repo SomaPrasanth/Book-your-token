@@ -1,5 +1,7 @@
 package com.example.bookyourtoken.data.models
 
+import kotlinx.datetime.LocalDateTime
+
 /** A food item as parsed from the booking page, restricted to what is offered tomorrow. */
 data class TokenItem(
     val name: String,
@@ -94,3 +96,66 @@ fun cancelMessage(oresult: Int?, bulk: Boolean): String = when (oresult) {
     2 -> "Cancel time expired"
     else -> "Error occurred"
 }
+
+/** A StudLeaveS row: [id] is the leave_type sent when applying, [label] is shown. */
+data class LeaveType(val id: String, val label: String)
+
+/** A StudApprMngr row: [staffId] is sent as `manager`, [name] is shown. */
+data class Approver(val staffId: String, val name: String)
+
+/**
+ * A StudentGetLeav row. [fromRaw]/[toRaw] are kept exactly as returned ("05-10-2026 06:00 PM"),
+ * because cancelling sends their date part as-is. [from]/[to] are null when they didn't parse.
+ */
+data class LeaveRecord(
+    val fromRaw: String,
+    val toRaw: String,
+    val from: LocalDateTime?,
+    val to: LocalDateTime?,
+    val type: String,
+    val reason: String,
+    val status: String
+) {
+    /** The dd-MM-yyyy date parts, exactly as returned — what a cancel request sends. */
+    val fromDatePart: String get() = fromRaw.trim().substringBefore(' ')
+    val toDatePart: String get() = toRaw.trim().substringBefore(' ')
+
+    /** The site only enables Cancel for leaves that haven't been decided yet. */
+    val canCancel: Boolean get() = status == "Applied"
+
+    /** The portal identifies a leave by its from and to dates only (no times) when cancelling. */
+    fun hasSameDatesAs(other: LeaveRecord): Boolean =
+        fromDatePart == other.fromDatePart && toDatePart == other.toDatePart
+
+    fun isSameLeaveAs(other: LeaveRecord): Boolean = fromRaw == other.fromRaw && toRaw == other.toRaw
+}
+
+/**
+ * Outcome of StudentLeavApply or StudentLeavCancel. Both succeed on oresult == 1 — unlike token
+ * cancelling (success 0), so never share this with [CancelResult].
+ */
+data class LeaveResult(
+    val success: Boolean,
+    val oresult: Int?,
+    val message: String
+)
+
+fun leaveApplyResult(oresult: Int?): LeaveResult = LeaveResult(
+    success = oresult == 1,
+    oresult = oresult,
+    message = when (oresult) {
+        1 -> "Leave applied"
+        0 -> "Leave already applied"
+        else -> "Error occurred"
+    }
+)
+
+fun leaveCancelResult(oresult: Int?): LeaveResult = LeaveResult(
+    success = oresult == 1,
+    oresult = oresult,
+    message = when (oresult) {
+        1 -> "Leave cancelled"
+        0 -> "Leave already cancelled"
+        else -> "Error occurred"
+    }
+)
