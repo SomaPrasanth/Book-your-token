@@ -35,7 +35,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: BookYourToken-android-debug
+          name: StayEasy-android-debug
           path: app/build/outputs/apk/debug/app-debug.apk
 
   ios:
@@ -83,12 +83,12 @@ jobs:
         run: |
           mkdir -p build/ipa/Payload
           cp -R build/ios/Build/Products/Release-iphoneos/BookYourToken.app build/ipa/Payload/
-          cd build/ipa && zip -qry BookYourToken-unsigned.ipa Payload
+          cd build/ipa && zip -qry StayEasy-unsigned.ipa Payload
 
       - uses: actions/upload-artifact@v7
         with:
-          name: BookYourToken-ios-unsigned
-          path: build/ipa/BookYourToken-unsigned.ipa
+          name: StayEasy-ios-unsigned
+          path: build/ipa/StayEasy-unsigned.ipa
 
       - name: Shared tests on the iOS simulator
         run: ./gradlew :shared:iosSimulatorArm64Test

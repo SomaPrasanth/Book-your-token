@@ -72,8 +72,8 @@ fun SetupScreen(
         topBar = {
             BrandHeader(
                 eyebrow = "PSG Tech hostel",
-                title = "Book your token",
-                subtitle = "Food tokens in a couple of taps"
+                title = "StayEasy",
+                subtitle = "Food tokens and leave, made easy"
             )
         }
     ) { padding ->
@@ -93,7 +93,7 @@ fun SetupScreen(
             Text("Sign in", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(8.dp))
             Text(
-                "A daily reminder and quick booking for PSG hostel food tokens. Sign in with your hostel portal account.",
+                "Quick food token booking, a daily reminder, and hostel leave for PSG hostel students. Sign in with your hostel portal account.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center

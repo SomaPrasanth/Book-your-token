@@ -4,20 +4,11 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Plate rim, kept inside the 66dp adaptive-icon safe zone -->
+    <!-- StayEasy: a house (the hostel) with a fork and knife cut out of it, for food and leave.
+         One even-odd path, so the cut-out also works as the themed (monochrome) icon.
+         Kept inside the 66dp adaptive-icon safe zone. The iOS AppIcon-1024.png is drawn from the same shapes. -->
     <path
-        android:fillColor="#00000000"
-        android:pathData="M54,30a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z"
-        android:strokeWidth="3.5"
-        android:strokeColor="#FFFFFFFF" />
-    <!-- Fork and knife -->
-    <group
-        android:scaleX="1.5"
-        android:scaleY="1.5"
-        android:translateX="36"
-        android:translateY="36">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M11,9H9V2H7v7H5V2H3v7c0,2.12 1.66,3.84 3.75,3.97V22h2.5v-9.03C11.34,12.84 13,11.12 13,9V2h-2V9zM16,6v8h2.5v8H21V2C18.24,2 16,4.24 16,6z" />
-    </group>
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,27L83,51L75,51L75,76Q75,79 72,79L36,79Q33,79 33,76L33,51L25,51Z M52.85,60.05 H50.55 V52 H48.25 v8.05 H45.95 V52 H43.65 v8.05 c0,2.438 1.909,4.416 4.312,4.566 V75 h2.875 v-10.384 C53.241,64.466 55.15,62.488 55.15,60.05 V52 h-2.3 V60.05zM58.6,56.6 v9.2 h2.875 v9.2 H64.35 V52 C61.176,52 58.6,54.576 58.6,56.6z" />
 </vector>
