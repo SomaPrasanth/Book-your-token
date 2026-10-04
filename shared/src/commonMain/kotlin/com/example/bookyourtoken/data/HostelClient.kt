@@ -1,10 +1,16 @@
 package com.example.bookyourtoken.data
 
 import com.example.bookyourtoken.data.models.ApiResult
+import com.example.bookyourtoken.data.models.Approver
 import com.example.bookyourtoken.data.models.BookResult
 import com.example.bookyourtoken.data.models.BookedToken
 import com.example.bookyourtoken.data.models.CancelResult
+import com.example.bookyourtoken.data.models.LeaveRecord
+import com.example.bookyourtoken.data.models.LeaveResult
+import com.example.bookyourtoken.data.models.LeaveType
 import com.example.bookyourtoken.data.models.cancelMessage
+import com.example.bookyourtoken.data.models.leaveApplyResult
+import com.example.bookyourtoken.data.models.leaveCancelResult
 import com.example.bookyourtoken.data.models.messageForResult
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
@@ -18,12 +24,14 @@ import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import io.ktor.http.parameters
 import kotlinx.coroutines.CancellationException
+import kotlinx.datetime.LocalDateTime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -235,6 +243,80 @@ class HostelClient : AutoCloseable {
         }
     }
 
+    // ---- Hostel leave. All five calls work with the login cookie alone (verified live). ----
+
+    /** StudLeaveS: the leave types to offer. Always build the dropdown from this, never hardcode it. */
+    suspend fun leaveTypes(rollNo: String): ApiResult<List<LeaveType>> =
+        leaveList("StudLeaveS", rollNo, "leave types", ::parseLeaveTypes)
+
+    /** StudApprMngr: the staff who can approve a leave. The list changes; never hardcode it. */
+    suspend fun approvers(rollNo: String): ApiResult<List<Approver>> =
+        leaveList("StudApprMngr", rollNo, "approving staff", ::parseApprovers)
+
+    /** StudentGetLeav, in the server's order (sorted as text, not by date — re-sort before showing). */
+    suspend fun leaveHistory(rollNo: String): ApiResult<List<LeaveRecord>> =
+        leaveList("StudentGetLeav", rollNo, "leave history", ::parseLeaveHistory)
+
+    private suspend fun <T> leaveList(
+        endpoint: String,
+        rollNo: String,
+        what: String,
+        parse: (String) -> List<T>
+    ): ApiResult<List<T>> = guarded(
+        timeout = "Loading $what timed out.",
+        failed = "Couldn't load $what",
+        notUnderstood = "The $what response was not understood."
+    ) {
+        val response = client.get("$BASE/Hostel/Student/$endpoint") {
+            parameter("rollno", rollNo.uppercase())
+            xhrHeaders(referer = BOOKING_PAGE_URL)
+        }
+        response.ifSuccessful("Couldn't load $what") { raw ->
+            val body = raw.trim()
+            if (body.isEmpty()) ApiResult.Success(emptyList()) else ApiResult.Success(parse(body))
+        }
+    }
+
+    /**
+     * Sends a real leave request to a real staff member — only after the user confirmed it. A
+     * timeout must be checked against the history, never resent.
+     */
+    suspend fun applyLeave(
+        rollNo: String,
+        from: LocalDateTime,
+        to: LocalDateTime,
+        typeId: String,
+        reason: String,
+        staffId: String
+    ): ApiResult<LeaveResult> = leaveAction(
+        "StudentLeavApply",
+        LeaveFormat.applyFormFields(rollNo, from, to, typeId, reason, staffId),
+        "Leave request",
+        ::leaveApplyResult
+    )
+
+    /** Cancels by the history row's dates (the portal ignores times). Only for "Applied" rows. */
+    suspend fun cancelLeave(rollNo: String, record: LeaveRecord): ApiResult<LeaveResult> =
+        leaveAction("StudentLeavCancel", LeaveFormat.cancelFormFields(rollNo, record), "Leave cancel", ::leaveCancelResult)
+
+    private suspend fun leaveAction(
+        endpoint: String,
+        fields: List<Pair<String, String>>,
+        what: String,
+        result: (Int?) -> LeaveResult
+    ): ApiResult<LeaveResult> = guarded(
+        timeout = "$what timed out.",
+        failed = "$what failed",
+        notUnderstood = "$what response was not understood.",
+        unknownOutcome = true
+    ) {
+        val response = client.submitForm(
+            url = "$BASE/Hostel/Student/$endpoint",
+            formParameters = parameters { fields.forEach { (name, value) -> append(name, value) } }
+        ) { xhrHeaders(referer = BOOKING_PAGE_URL) }
+        response.ifSuccessful("$what failed") { body -> ApiResult.Success(result(resultCode(body))) }
+    }
+
     companion object {
         const val BASE = "https://edviewx.psgtech.ac.in"
         const val BOOKING_PAGE_URL = "$BASE/Hostel/Student/StudentView"
@@ -277,6 +359,37 @@ class HostelClient : AutoCloseable {
                     viewStatus = o.stringOrNull("ViewStatus"),
                     mealTime = o.stringOrNull("MEALTIME"),
                     count = o.intOrNull("COUNT")
+                )
+            }
+
+        /** The leave endpoints' JSON arrays. Throws IllegalArgumentException if the body isn't one. */
+        private fun leaveRows(body: String): List<JsonObject> =
+            json.parseToJsonElement(body).jsonArray.mapNotNull { it as? JsonObject }
+
+        internal fun parseLeaveTypes(body: String): List<LeaveType> =
+            leaveRows(body).mapNotNull { o ->
+                val id = o.stringOrNull("leave_type")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                LeaveType(id, o.stringOrNull("leave")?.takeIf { it.isNotBlank() } ?: id)
+            }
+
+        internal fun parseApprovers(body: String): List<Approver> =
+            leaveRows(body).mapNotNull { o ->
+                val id = o.stringOrNull("staff_id")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                Approver(id, o.stringOrNull("staff_name")?.trim()?.takeIf { it.isNotEmpty() } ?: id)
+            }
+
+        internal fun parseLeaveHistory(body: String): List<LeaveRecord> =
+            leaveRows(body).mapNotNull { o ->
+                val from = o.stringOrNull("fromdate") ?: return@mapNotNull null
+                val to = o.stringOrNull("todate") ?: return@mapNotNull null
+                LeaveRecord(
+                    fromRaw = from,
+                    toRaw = to,
+                    from = LeaveFormat.parseHistoryDateTime(from),
+                    to = LeaveFormat.parseHistoryDateTime(to),
+                    type = o.stringOrNull("leave_type").orEmpty(),
+                    reason = o.stringOrNull("reason").orEmpty(),
+                    status = o.stringOrNull("status").orEmpty()
                 )
             }
 

@@ -2,7 +2,10 @@ package com.example.bookyourtoken.data
 
 import com.russhwolf.settings.Settings
 
-/** Non-secret app settings: reminder time, the skip-if-already-booked toggle and the QR-ready check. */
+/**
+ * Non-secret app settings: reminder time, the skip-if-already-booked toggle, the QR-ready check and
+ * the last approving staff picked for a leave.
+ */
 class AppPreferences(private val settings: Settings) {
 
     var reminderHour: Int
@@ -30,6 +33,11 @@ class AppPreferences(private val settings: Settings) {
         get() = settings.getInt(KEY_QR_MINUTE, DEFAULT_QR_MINUTE)
         set(value) = settings.putInt(KEY_QR_MINUTE, value)
 
+    /** staff_id of the last leave approver, preselected next time if they're still in the list. */
+    var lastLeaveApprover: String?
+        get() = settings.getStringOrNull(KEY_LEAVE_APPROVER)
+        set(value) = if (value == null) settings.remove(KEY_LEAVE_APPROVER) else settings.putString(KEY_LEAVE_APPROVER, value)
+
     companion object {
         /** Android keeps these in the "app_prefs" SharedPreferences file. */
         const val ANDROID_PREFS_NAME = "app_prefs"
@@ -39,6 +47,7 @@ class AppPreferences(private val settings: Settings) {
         private const val KEY_QR_ENABLED = "qr_ready_enabled"
         private const val KEY_QR_HOUR = "qr_ready_hour"
         private const val KEY_QR_MINUTE = "qr_ready_minute"
+        private const val KEY_LEAVE_APPROVER = "leave_approver"
         const val DEFAULT_HOUR = 16
         const val DEFAULT_MINUTE = 0
         const val DEFAULT_QR_HOUR = 7
