@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Book your token</string>
+    <string name="app_name">StayEasy</string>
     <string name="shortcut_show_qr">Show QR</string>
     <string name="shortcut_show_qr_long">Show food token QR</string>
 </resources>

@@ -1,6 +1,6 @@
-# Book your token
+# StayEasy
 
-A small Android and iOS app that reminds PSG Tech hostel students to book tomorrow's food tokens and lets them book in a couple of taps — without opening the portal in a browser.
+A small Android and iOS app for PSG Tech hostel students: it reminds you to book tomorrow's food tokens, books them (or upcoming days) in a couple of taps, shows your food QR, and lets you apply for and cancel hostel leave — without opening the portal in a browser. (It used to be called *Book your token*.)
 
 Built with Kotlin Multiplatform: the portal client, parsing, booking/cancel logic **and the whole UI** (Compose Multiplatform) are shared, so both apps behave identically.
 
@@ -107,13 +107,13 @@ Or open the folder in Android Studio and press **Run**.
 
 ### iOS
 
-Building an iOS app needs macOS and Xcode — but you don't need a Mac yourself: the **Build** GitHub Actions workflow (`.github/workflows/build.yml`) builds an unsigned `.ipa` on a cloud Mac on every push to `main`. Download it from the workflow run's **Artifacts** (`BookYourToken-ios-unsigned`).
+Building an iOS app needs macOS and Xcode — but you don't need a Mac yourself: the **Build** GitHub Actions workflow (`.github/workflows/build.yml`) builds an unsigned `.ipa` on a cloud Mac on every push to `main`. Download it from the workflow run's **Artifacts** (`StayEasy-ios-unsigned`).
 
 **Installing on an iPhone from Windows** (free Apple ID):
 
 1. Install [Sideloadly](https://sideloadly.io/) and Apple's iTunes (the version from apple.com, not the Microsoft Store one).
 2. Connect the iPhone by USB and tap **Trust** on the phone.
-3. Drag `BookYourToken-unsigned.ipa` into Sideloadly, enter your Apple ID, click **Start**. Sideloadly signs it with your Apple ID.
+3. Drag `StayEasy-unsigned.ipa` into Sideloadly, enter your Apple ID, click **Start**. Sideloadly signs it with your Apple ID.
 4. On the iPhone: **Settings → General → VPN & Device Management** → trust your Apple ID. On iOS 16+ also enable **Settings → Privacy & Security → Developer Mode** (the phone restarts).
 5. Open the app, sign in, allow notifications.
 
