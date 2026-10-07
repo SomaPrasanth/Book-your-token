@@ -2,5 +2,6 @@
 <!-- Android 11 and older. Same rules as data_extraction_rules.xml: never back up credentials or the saved QR. -->
 <full-backup-content>
     <exclude domain="sharedpref" path="secure_credentials.xml" />
+    <exclude domain="sharedpref" path="app_updates.xml" />
     <exclude domain="file" path="qr/" />
 </full-backup-content>

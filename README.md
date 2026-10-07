@@ -27,6 +27,7 @@ Built with Kotlin Multiplatform: the portal client, parsing, booking/cancel logi
 - **Food token QR** — once the portal enables a token's QR, a *Show today's QR* button appears (and *Show QR* on that token in Booked). The QR is shown large on white, at full brightness with the screen kept on, above the list of tokens it covers. A copy is kept for when the mess hall has no signal ("Offline copy from 7:42 AM — may be outdated").
 - **Hostel leave** — your leave history, newest first, with a coloured status for each (Applied, Approved, Rejected, Cancelled). *Apply for leave* opens a form: leave type and approving staff come straight from the portal (the staff list is searchable and remembers who you picked last), From and To each get a date and a time in 5-minute steps, and the reason only accepts what the portal allows. Leaves that are still *Applied* can be cancelled.
 - **Optional "QR ready" notification** (Android, off by default) — one morning check that tells you when your QR is enabled.
+- **In-app updates** (Android) — checks a public GitHub releases repo and offers newer versions with their release notes. *Later* puts a version off for 24 hours; Android's own install screen always asks before anything is installed. Settings has *Check for updates* and *Open releases page*.
 
 ### Android vs iOS
 
@@ -105,6 +106,28 @@ cd book-your-token
 
 Or open the folder in Android Studio and press **Run**.
 
+### Releasing an Android update
+
+The app updates itself from a **public GitHub repo that holds only releases** (no source). Set it up once:
+
+1. Create a release keystore (Android Studio → *Build → Generate Signed App Bundle or APK → Create new*) and keep it safe — **every** update must be signed with this same key, or Android refuses to install it.
+2. Create `keystore.properties` in the project root (git-ignored, like `*.jks`):
+   ```properties
+   storeFile=C:/path/to/stayeasy-release.jks
+   storePassword=…
+   keyAlias=…
+   keyPassword=…
+   ```
+3. Fill in `UPDATE_REPO_OWNER` and `UPDATE_REPO_NAME` in `app/build.gradle.kts`. Until then the app doesn't check for updates.
+
+For each release:
+
+1. Increase `versionCode` by 1 (and set `versionName`) in `app/build.gradle.kts`, then `./gradlew :app:assembleRelease`.
+2. In the releases repo, publish a release with tag **`v<versionCode>`** (e.g. `v7` — this is what the app compares), the version name as the title (e.g. `1.3.0`), release notes as the body, and the signed APK from `app/build/outputs/apk/release/` as the **only `.apk` asset**.
+3. Put `[required]` anywhere in the notes to make the update mandatory (no *Later*; use it when a portal change breaks old versions).
+
+Phones check at launch and after the daily reminder, at most once every 6 hours (with an ETag, so unchanged results don't count against GitHub's 60-requests-per-hour limit for a shared hostel IP). Never put a GitHub token in the app. The first build with this feature has to be installed by hand; if a phone still has a build signed with a different key, the update fails with "App not installed": uninstall, install the new APK, and sign in again.
+
 ### iOS
 
 Building an iOS app needs macOS and Xcode — but you don't need a Mac yourself: the **Build** GitHub Actions workflow (`.github/workflows/build.yml`) builds an unsigned `.ipa` on a cloud Mac on every push to `main`. Download it from the workflow run's **Artifacts** (`StayEasy-ios-unsigned`).
@@ -128,7 +151,7 @@ On Windows/Linux, `./gradlew :shared:compileKotlinIosArm64` still type-checks th
 ```
 shared/src/                    Kotlin Multiplatform module — everything both apps share
 ├── commonMain/kotlin/com/example/bookyourtoken/
-│   ├── AppContainer.kt        What each platform provides: storage, reminders, links
+│   ├── AppContainer.kt        What each platform provides: storage, reminders, links, updates
 │   ├── data/
 │   │   ├── HostelClient.kt    Ktor client, one session (cookie jar) per operation
 │   │   ├── TokenPageParser.kt Ksoup parsing of the booking page (pure, unit tested)
@@ -136,6 +159,7 @@ shared/src/                    Kotlin Multiplatform module — everything both a
 │   │   ├── QrStore.kt         Offline QR copy in app-private files; deleted once stale
 │   │   ├── LeaveFormat.kt     The leave endpoints' date/time formats and form fields (unit tested)
 │   │   ├── ReminderCheck.kt   The daily "what's on tomorrow" check
+│   │   ├── AppUpdates.kt      GitHub release parsing and the update check rules (unit tested)
 │   │   ├── CredentialStore.kt Credentials over an encrypted Settings backend
 │   │   ├── AppPreferences.kt  Reminder time, toggles and the last leave approver
 │   │   ├── DateUtils.kt       "Tomorrow" in Asia/Kolkata (kotlinx-datetime)
@@ -154,6 +178,7 @@ app/                           Android app
     ├── HostelApp.kt           Builds the AppContainer (EncryptedSharedPreferences)
     ├── MainActivity.kt        Hosts the shared UI
     ├── AndroidPlatform.kt     Links, notification settings, WorkManager reminders, private files
+    ├── update/                UpdateManager: GitHub release check, APK download + verification, installer
     └── work/                  ReminderWorker, QrReadyWorker, ReminderScheduler, NotificationHelper, BootReceiver
 
 iosApp/                        iOS app (SwiftUI shell around the shared UI)

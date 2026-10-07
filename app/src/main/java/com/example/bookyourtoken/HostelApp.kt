@@ -7,10 +7,13 @@ import androidx.security.crypto.MasterKey
 import com.example.bookyourtoken.data.AppPreferences
 import com.example.bookyourtoken.data.CredentialStore
 import com.example.bookyourtoken.data.QrStore
+import com.example.bookyourtoken.update.UpdateManager
 import com.example.bookyourtoken.work.NotificationHelper
 import com.russhwolf.settings.SharedPreferencesSettings
 
 class HostelApp : Application() {
+
+    val updates: UpdateManager by lazy { UpdateManager(this) }
 
     /** Built lazily: creating the EncryptedSharedPreferences master key is slow. */
     val container: AppContainer by lazy {
@@ -21,7 +24,8 @@ class HostelApp : Application() {
             ),
             reminders = AndroidReminders(this),
             platform = AndroidPlatformActions(this),
-            qr = QrStore(AndroidPrivateFiles(this))
+            qr = QrStore(AndroidPrivateFiles(this)),
+            updater = updates
         )
     }
 
@@ -42,3 +46,6 @@ class HostelApp : Application() {
 
 val Context.appContainer: AppContainer
     get() = (applicationContext as HostelApp).container
+
+val Context.appUpdates: UpdateManager
+    get() = (applicationContext as HostelApp).updates

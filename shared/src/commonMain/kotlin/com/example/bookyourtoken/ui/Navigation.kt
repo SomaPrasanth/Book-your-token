@@ -16,6 +16,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,6 +60,7 @@ import com.example.bookyourtoken.ui.setup.SetupViewModel
 import com.example.bookyourtoken.ui.theme.HostelTheme
 import com.example.bookyourtoken.ui.tokens.TokensScreen
 import com.example.bookyourtoken.ui.tokens.TokensViewModel
+import com.example.bookyourtoken.ui.update.UpdateDialogHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -148,6 +151,12 @@ private fun AppNavHost(container: AppContainer, startOnQr: Boolean, openQrReques
         withContext(Dispatchers.Default) { container.qr.deleteIfStale() }
     }
 
+    // "Updated to 1.3.0", once, on the first launch after an update (Android only).
+    val rootSnackbar = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        container.updater?.takeUpdatedMessage()?.let { rootSnackbar.showSnackbar(it) }
+    }
+
     LaunchedEffect(openQrRequest) {
         if (openQrRequest > 0 && container.credentials.hasCredentials()) openTab(Tab.Qr)
     }
@@ -155,6 +164,7 @@ private fun AppNavHost(container: AppContainer, startOnQr: Boolean, openQrReques
     Scaffold(
         // Each screen draws its own top bar and handles the status bar itself.
         contentWindowInsets = WindowInsets(0),
+        snackbarHost = { SnackbarHost(rootSnackbar) },
         bottomBar = {
             if (currentTab != null) {
                 AppNavigationBar(currentTab, upcomingCount, onSelect = openTab)
@@ -253,6 +263,8 @@ private fun AppNavHost(container: AppContainer, startOnQr: Boolean, openQrReques
             }
         }
     }
+
+    container.updater?.let { UpdateDialogHost(it) }
 
     pendingLeave?.let { leave ->
         AlertDialog(

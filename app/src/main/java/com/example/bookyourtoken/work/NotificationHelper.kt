@@ -23,6 +23,8 @@ object NotificationHelper {
     private const val LEGACY_CHANNEL_ID = "token_reminder"
     private const val NOTIFICATION_ID = 1001
     private const val QR_NOTIFICATION_ID = 1002
+    private const val UPDATE_CHANNEL_ID = "app_updates"
+    private const val UPDATE_NOTIFICATION_ID = 1003
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -96,6 +98,37 @@ object NotificationHelper {
             .build()
 
         notifyIfAllowed(context, QR_NOTIFICATION_ID, notification)
+    }
+
+    /** "Update available" on its own channel, so it can be silenced without losing reminders. */
+    fun postUpdateAvailable(context: Context, versionName: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
+                NotificationChannel(UPDATE_CHANNEL_ID, "App updates", NotificationManager.IMPORTANCE_DEFAULT)
+            )
+        }
+
+        val openIntent = Intent(context, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_SHOW_UPDATE
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val contentIntent = PendingIntent.getActivity(
+            context,
+            3,
+            openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, UPDATE_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Update available")
+            .setContentText("Version $versionName is ready. Tap to update.")
+            .setContentIntent(contentIntent)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+
+        notifyIfAllowed(context, UPDATE_NOTIFICATION_ID, notification)
     }
 
     private fun notifyIfAllowed(context: Context, id: Int, notification: android.app.Notification) {

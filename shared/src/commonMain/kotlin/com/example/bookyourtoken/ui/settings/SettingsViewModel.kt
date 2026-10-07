@@ -2,6 +2,7 @@ package com.example.bookyourtoken.ui.settings
 
 import androidx.lifecycle.ViewModel
 import com.example.bookyourtoken.AppContainer
+import com.example.bookyourtoken.AppUpdater
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +24,9 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
     private val credentialStore = container.credentials
     private val reminders = container.reminders
     private val qrStore = container.qr
+
+    /** Null on iOS, where the Settings update rows are hidden. */
+    val updater: AppUpdater? = container.updater
 
     private val _uiState = MutableStateFlow(
         SettingsUiState(

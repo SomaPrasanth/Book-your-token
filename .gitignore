@@ -28,6 +28,7 @@ xcuserdata/
 DerivedData/
 
 # Signing keys and built artifacts — never commit these
+keystore.properties
 *.jks
 *.keystore
 *.apk

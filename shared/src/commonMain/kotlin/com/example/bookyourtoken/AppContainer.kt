@@ -3,6 +3,9 @@ package com.example.bookyourtoken
 import com.example.bookyourtoken.data.AppPreferences
 import com.example.bookyourtoken.data.CredentialStore
 import com.example.bookyourtoken.data.QrStore
+import com.example.bookyourtoken.data.UpdateCheckResult
+import com.example.bookyourtoken.data.UpdateDialogState
+import kotlinx.coroutines.flow.StateFlow
 
 /** Daily reminder scheduling — WorkManager on Android, local notifications on iOS. */
 interface Reminders {
@@ -41,11 +44,46 @@ interface PlatformActions {
     val appVersion: String?
 }
 
+/**
+ * In-app updates from the public GitHub releases repo — Android only (sideloaded APKs). The user
+ * always confirms on Android's own install screen; nothing is installed silently.
+ */
+interface AppUpdater {
+    /** The update dialog to show over the whole app, or null for none. */
+    val dialog: StateFlow<UpdateDialogState?>
+
+    /** github.com/{owner}/{repo}/releases/latest, for downloading by hand. */
+    val releasesPageUrl: String
+
+    /** Settings → "Check for updates": ignores the 6-hour limit and any "Later", and reports errors. */
+    suspend fun checkNow(): UpdateCheckResult
+
+    /** Closes the dialog and holds that version back for 24 hours. Ignored for required updates. */
+    fun later()
+
+    /** Downloads (or re-downloads) the dialog's release, verifies it, then moves on to installing. */
+    fun startDownload()
+
+    /** Stops the download, deletes the partial file and goes back to the release notes. */
+    fun cancelDownload()
+
+    /** Opens the system "Install unknown apps" page for this app. */
+    fun requestInstallPermission()
+
+    /** Opens Android's install screen for the verified download again. */
+    fun install()
+
+    /** "Updated to 1.3.0" once, on the first launch after an update; null otherwise. */
+    fun takeUpdatedMessage(): String?
+}
+
 /** Everything the shared code needs, built once per process by each platform. */
 class AppContainer(
     val credentials: CredentialStore,
     val preferences: AppPreferences,
     val reminders: Reminders,
     val platform: PlatformActions,
-    val qr: QrStore
+    val qr: QrStore,
+    /** Null where the app can't update itself (iOS). */
+    val updater: AppUpdater? = null
 )

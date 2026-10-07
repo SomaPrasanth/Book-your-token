@@ -50,6 +50,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.bookyourtoken.data.HostelClient
+import com.example.bookyourtoken.data.UpdateCheckResult
 import com.example.bookyourtoken.ui.common.AppIcons
 import com.example.bookyourtoken.ui.common.BrandHeader
 import com.example.bookyourtoken.ui.common.LocalPlatformActions
@@ -78,6 +79,8 @@ fun SettingsScreen(
     }
 
     val versionName = remember { platform.appVersion }
+    val updater = viewModel.updater
+    var checkingForUpdates by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -220,6 +223,49 @@ fun SettingsScreen(
                     title = "Version",
                     subtitle = versionName ?: "—",
                     leading = { Icon(Icons.Filled.Info, contentDescription = null) }
+                )
+                if (updater != null) {
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsRow(
+                        title = "Check for updates",
+                        subtitle = if (checkingForUpdates) "Checking…" else "Look for a newer version",
+                        leading = { Icon(AppIcons.SystemUpdate, contentDescription = null) },
+                        onClick = {
+                            if (!checkingForUpdates) {
+                                checkingForUpdates = true
+                                scope.launch {
+                                    val result = try {
+                                        updater.checkNow()
+                                    } finally {
+                                        checkingForUpdates = false
+                                    }
+                                    when (result) {
+                                        is UpdateCheckResult.UpToDate ->
+                                            snackbarHostState.showSnackbar("You're on the latest version (${result.versionName})")
+                                        is UpdateCheckResult.Failed -> snackbarHostState.showSnackbar(result.message)
+                                        UpdateCheckResult.UpdateFound -> Unit
+                                    }
+                                }
+                            }
+                        }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsRow(
+                        title = "Open releases page",
+                        subtitle = "Download the latest version yourself",
+                        leading = { Icon(AppIcons.OpenInNew, contentDescription = null) },
+                        onClick = { platform.openUrl(updater.releasesPageUrl) }
+                    )
+                }
+            }
+
+            if (updater != null) {
+                Text(
+                    "If an update says \"App not installed\", uninstall this app and install the latest version " +
+                        "from ${updater.releasesPageUrl.removePrefix("https://")}. You'll need to log in again.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
                 )
             }
 
