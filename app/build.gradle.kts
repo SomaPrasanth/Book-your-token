@@ -23,8 +23,8 @@ android {
         minSdk = libs.versions.androidMinSdk.get().toInt()
         targetSdk = libs.versions.androidTargetSdk.get().toInt()
         // MUST increase by 1 on every release; the release tag is v<versionCode> (see README).
-        versionCode = 5
-        versionName = "1.3.1"
+        versionCode = 6
+        versionName = "1.4.0"
 
         // The public repo that holds only the releases (no source). No token: it must stay public.
         buildConfigField("String", "UPDATE_REPO_OWNER", "\"SomaPrasanth\"")

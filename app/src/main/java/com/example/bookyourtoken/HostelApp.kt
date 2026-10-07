@@ -2,10 +2,12 @@ package com.example.bookyourtoken
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.example.bookyourtoken.data.AppPreferences
 import com.example.bookyourtoken.data.CredentialStore
+import com.example.bookyourtoken.data.GreetingStore
 import com.example.bookyourtoken.data.QrStore
 import com.example.bookyourtoken.update.UpdateManager
 import com.example.bookyourtoken.work.NotificationHelper
@@ -17,15 +19,16 @@ class HostelApp : Application() {
 
     /** Built lazily: creating the EncryptedSharedPreferences master key is slow. */
     val container: AppContainer by lazy {
+        val prefs = SharedPreferencesSettings(getSharedPreferences(AppPreferences.ANDROID_PREFS_NAME, MODE_PRIVATE))
         AppContainer(
             credentials = CredentialStore(SharedPreferencesSettings(encryptedCredentialPrefs(this))),
-            preferences = AppPreferences(
-                SharedPreferencesSettings(getSharedPreferences(AppPreferences.ANDROID_PREFS_NAME, MODE_PRIVATE))
-            ),
+            preferences = AppPreferences(prefs),
+            greeting = GreetingStore(prefs),
             reminders = AndroidReminders(this),
             platform = AndroidPlatformActions(this),
             qr = QrStore(AndroidPrivateFiles(this)),
-            updater = updates
+            updater = updates,
+            debugLog = if (BuildConfig.DEBUG) { message -> Log.d("StayEasy", message) } else null
         )
     }
 

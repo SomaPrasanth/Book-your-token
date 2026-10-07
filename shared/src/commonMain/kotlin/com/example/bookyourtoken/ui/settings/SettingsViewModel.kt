@@ -24,6 +24,15 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
     private val credentialStore = container.credentials
     private val reminders = container.reminders
     private val qrStore = container.qr
+    private val greeting = container.greeting
+
+    /** The name in the Tomorrow screen's greeting, or null for "Not set". */
+    val greetingName: StateFlow<String?> = greeting.displayName
+
+    /** For the edit dialog's "From portal: …" hint. */
+    val portalFullName: String? get() = greeting.portalFullName
+
+    val hasGreetingOverride: Boolean get() = greeting.userName != null
 
     /** Null on iOS, where the Settings update rows are hidden. */
     val updater: AppUpdater? = container.updater
@@ -69,6 +78,10 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
         _uiState.value = _uiState.value.copy(qrReadyHour = hour, qrReadyMinute = minute)
     }
 
+    fun setGreetingName(name: String) = greeting.setUserName(name)
+
+    fun usePortalGreetingName() = greeting.usePortalName()
+
     fun checkNow() {
         reminders.checkNow()
     }
@@ -77,5 +90,6 @@ class SettingsViewModel(container: AppContainer) : ViewModel() {
         credentialStore.clear()
         reminders.cancel()
         qrStore.clear()
+        greeting.clear()
     }
 }

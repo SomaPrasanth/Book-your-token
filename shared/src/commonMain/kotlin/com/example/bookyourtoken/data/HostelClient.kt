@@ -243,6 +243,35 @@ class HostelClient : AutoCloseable {
         }
     }
 
+    /**
+     * studDetails, which the portal's own page calls after login — read only for the greeting's
+     * name (see [StudentNames]). Its path and shape aren't verified, so every failure is just null:
+     * cookie first, then once more with the login's JWT if the answer wasn't JSON. The body holds
+     * personal details: never log or keep it.
+     */
+    suspend fun studentDetailsJson(rollNo: String, jwt: String?): String? {
+        suspend fun fetch(bearer: String?): String? = try {
+            val response = client.get("$BASE/Hostel/Student/studDetails") {
+                parameter("rollno", rollNo.uppercase())
+                xhrHeaders(referer = BOOKING_PAGE_URL)
+                bearer?.let { header(HttpHeaders.Authorization, "Bearer $it") }
+            }
+            if (response.status.isSuccess()) {
+                response.bodyAsText().trim().takeIf { it.startsWith("{") || it.startsWith("[") }
+            } else {
+                null
+            }
+        } catch (e: Throwable) {
+            when {
+                e.isTimeout() -> null
+                e is CancellationException -> throw e
+                e is Exception -> null
+                else -> throw e
+            }
+        }
+        return fetch(bearer = null) ?: jwt?.takeIf { it.isNotBlank() }?.let { fetch(bearer = it) }
+    }
+
     // ---- Hostel leave. All five calls work with the login cookie alone (verified live). ----
 
     /** StudLeaveS: the leave types to offer. Always build the dropdown from this, never hardcode it. */

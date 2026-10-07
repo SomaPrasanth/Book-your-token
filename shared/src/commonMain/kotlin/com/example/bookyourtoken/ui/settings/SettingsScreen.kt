@@ -4,16 +4,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -28,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -44,11 +49,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.bookyourtoken.data.Greeting
 import com.example.bookyourtoken.data.HostelClient
 import com.example.bookyourtoken.data.UpdateCheckResult
 import com.example.bookyourtoken.ui.common.AppIcons
@@ -71,6 +79,8 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var timePicker by remember { mutableStateOf<TimePickerTarget?>(null) }
     var confirmSignOut by remember { mutableStateOf(false) }
+    val greetingName by viewModel.greetingName.collectAsStateWithLifecycle()
+    var editGreetingName by remember { mutableStateOf(false) }
 
     // Re-read on every resume: the user may have just toggled notifications in system settings.
     var notificationsEnabled by remember { mutableStateOf(true) }
@@ -196,6 +206,14 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingsRow(
+                    title = "Name in greeting",
+                    subtitle = greetingName ?: "Not set",
+                    onClickLabel = "change the name in the greeting",
+                    leading = { Icon(Icons.Filled.Face, contentDescription = null) },
+                    onClick = { editGreetingName = true }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsRow(
                     title = "Sign out",
                     subtitle = "Remove saved credentials from this device",
                     leading = {
@@ -305,6 +323,23 @@ fun SettingsScreen(
         null -> Unit
     }
 
+    if (editGreetingName) {
+        GreetingNameDialog(
+            initial = greetingName.orEmpty(),
+            portalFullName = viewModel.portalFullName,
+            canUsePortalName = viewModel.hasGreetingOverride,
+            onSave = {
+                viewModel.setGreetingName(it)
+                editGreetingName = false
+            },
+            onUsePortalName = {
+                viewModel.usePortalGreetingName()
+                editGreetingName = false
+            },
+            onDismiss = { editGreetingName = false }
+        )
+    }
+
     if (confirmSignOut) {
         AlertDialog(
             onDismissRequest = { confirmSignOut = false },
@@ -324,6 +359,53 @@ fun SettingsScreen(
 }
 
 private enum class TimePickerTarget { Reminder, QrReady }
+
+/** Edits the greeting's name. Saving makes it an override the portal never replaces. */
+@Composable
+private fun GreetingNameDialog(
+    initial: String,
+    portalFullName: String?,
+    canUsePortalName: Boolean,
+    onSave: (String) -> Unit,
+    onUsePortalName: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf(initial.take(Greeting.MAX_USER_NAME)) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Name in greeting") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { if (it.length <= Greeting.MAX_USER_NAME) name = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { onSave(name) }),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                portalFullName?.let {
+                    Text(
+                        "From portal: $it",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(name) }) { Text("Save") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onUsePortalName, enabled = canUsePortalName) { Text("Use portal name") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        }
+    )
+}
 
 @Composable
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {

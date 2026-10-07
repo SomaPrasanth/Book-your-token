@@ -27,6 +27,7 @@ Built with Kotlin Multiplatform: the portal client, parsing, booking/cancel logi
 - **Food token QR** — once the portal enables a token's QR, a *Show today's QR* button appears (and *Show QR* on that token in Booked). The QR is shown large on white, at full brightness with the screen kept on, above the list of tokens it covers. A copy is kept for when the mess hall has no signal ("Offline copy from 7:42 AM — may be outdated").
 - **Hostel leave** — your leave history, newest first, with a coloured status for each (Applied, Approved, Rejected, Cancelled). *Apply for leave* opens a form: leave type and approving staff come straight from the portal (the staff list is searchable and remembers who you picked last), From and To each get a date and a time in 5-minute steps, and the reason only accepts what the portal allows. Leaves that are still *Applied* can be cancelled.
 - **Optional "QR ready" notification** (Android, off by default) — one morning check that tells you when your QR is enabled.
+- **Greeting** — "Good evening, Soma 👋" at the top of *Tomorrow*. The name comes from the portal (looked up at most once a day, after your tokens have loaded) and can be changed in Settings → *Name in greeting*.
 - **In-app updates** (Android) — checks a public GitHub releases repo and offers newer versions with their release notes. *Later* puts a version off for 24 hours; Android's own install screen always asks before anything is installed. Settings has *Check for updates* and *Open releases page*.
 
 ### Android vs iOS

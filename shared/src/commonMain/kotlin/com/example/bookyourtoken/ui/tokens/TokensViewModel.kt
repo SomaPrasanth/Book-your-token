@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.bookyourtoken.AppContainer
 import com.example.bookyourtoken.data.DateUtils
 import com.example.bookyourtoken.data.HostelClient
+import com.example.bookyourtoken.data.StudentNames
 import com.example.bookyourtoken.data.TokenPageParser
 import com.example.bookyourtoken.data.models.ApiResult
 import com.example.bookyourtoken.data.models.BookedToken
@@ -54,7 +55,13 @@ class TokensViewModel(private val container: AppContainer) : ViewModel() {
     private val _showConfirmDialog = MutableStateFlow(false)
     val showConfirmDialog: StateFlow<Boolean> = _showConfirmDialog.asStateFlow()
 
+    private val greeting = container.greeting
+
+    /** The greeting's name: the user's own, else the portal's short name, else none. */
+    val greetingName: StateFlow<String?> = greeting.displayName
+
     private var refreshJob: Job? = null
+    private var nameJob: Job? = null
 
     init {
         refresh()
@@ -74,12 +81,15 @@ class TokensViewModel(private val container: AppContainer) : ViewModel() {
                 return@launch
             }
 
-            HostelClient().use { client ->
+            val client = HostelClient()
+            var nameFetch: Job? = null
+            try {
                 val login = client.login(rollNo, password)
                 if (login is ApiResult.Failure) {
                     _uiState.value = TokensUiState.Error(login.message)
                     return@launch
                 }
+                val jwt = (login as? ApiResult.Success)?.data
 
                 showStage("Reading tomorrow's menu…")
                 val html = when (val page = client.fetchBookingPageHtml()) {
@@ -110,8 +120,28 @@ class TokensViewModel(private val container: AppContainer) : ViewModel() {
                     upcomingCount = countUpcoming(booked, DateUtils.today())
                 )
                 if (bookedTomorrow.isNotEmpty()) container.reminders.onTomorrowBooked()
+                // Only now: the portal may handle one request per session at a time, so starting
+                // earlier could hold up the token list.
+                nameFetch = fetchNameInBackground(client, rollNo, jwt)
+            } finally {
+                // A name fetch still running shares this session; it closes it when it's done.
+                val pending = nameFetch
+                if (pending == null) client.close() else pending.invokeOnCompletion { client.close() }
             }
         }
+    }
+
+    /**
+     * The greeting's name, at most once a day, on this load's own session (no second login). It
+     * runs on its own, and any failure just leaves the name as it was.
+     */
+    private fun fetchNameInBackground(client: HostelClient, rollNo: String, jwt: String?): Job? {
+        if (nameJob?.isActive == true || !greeting.isFetchDue(DateUtils.today())) return null
+        return viewModelScope.launch {
+            val body = client.studentDetailsJson(rollNo, jwt) ?: return@launch
+            container.debugLog?.invoke("studDetails keys: ${StudentNames.keyNames(body)}")
+            greeting.onPortalFetched(StudentNames.findFullName(body), DateUtils.today())
+        }.also { nameJob = it }
     }
 
     private fun showStage(stage: String) {

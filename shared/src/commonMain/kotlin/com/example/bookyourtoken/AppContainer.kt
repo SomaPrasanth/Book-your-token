@@ -2,6 +2,7 @@ package com.example.bookyourtoken
 
 import com.example.bookyourtoken.data.AppPreferences
 import com.example.bookyourtoken.data.CredentialStore
+import com.example.bookyourtoken.data.GreetingStore
 import com.example.bookyourtoken.data.QrStore
 import com.example.bookyourtoken.data.UpdateCheckResult
 import com.example.bookyourtoken.data.UpdateDialogState
@@ -81,9 +82,12 @@ interface AppUpdater {
 class AppContainer(
     val credentials: CredentialStore,
     val preferences: AppPreferences,
+    val greeting: GreetingStore,
     val reminders: Reminders,
     val platform: PlatformActions,
     val qr: QrStore,
     /** Null where the app can't update itself (iOS). */
-    val updater: AppUpdater? = null
+    val updater: AppUpdater? = null,
+    /** Debug builds only, and only for developer hints that hold no personal data. */
+    val debugLog: ((String) -> Unit)? = null
 )

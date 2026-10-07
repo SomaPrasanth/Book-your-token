@@ -49,6 +49,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -66,6 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.bookyourtoken.data.DateUtils
+import com.example.bookyourtoken.data.Greeting
 import com.example.bookyourtoken.data.HostelClient
 import com.example.bookyourtoken.data.models.BookedToken
 import com.example.bookyourtoken.data.models.TokenItem
@@ -81,7 +83,6 @@ import com.example.bookyourtoken.ui.common.priceValue
 import com.example.bookyourtoken.ui.theme.onSuccessContainerColor
 import com.example.bookyourtoken.ui.theme.successColor
 import com.example.bookyourtoken.ui.theme.successContainerColor
-import kotlin.time.Clock
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +97,9 @@ fun TokensScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val bookingState by viewModel.bookingState.collectAsStateWithLifecycle()
     val showConfirm by viewModel.showConfirmDialog.collectAsStateWithLifecycle()
+    val greetingName by viewModel.greetingName.collectAsStateWithLifecycle()
+    // By the hostel's clock when composed; it doesn't need to tick over while the screen is open.
+    val greeting = remember(greetingName) { Greeting.text(DateUtils.now().hour, greetingName) }
     val platform = LocalPlatformActions.current
     val openPortal = { platform.openUrl(HostelClient.BOOKING_PAGE_URL) }
 
@@ -113,7 +117,6 @@ fun TokensScreen(
     Scaffold(
         topBar = {
             BrandHeader(
-                eyebrow = greeting(),
                 title = "Tomorrow's tokens",
                 subtitle = (uiState as? TokensUiState.Loaded)?.tomorrowLabel,
                 actions = {
@@ -135,8 +138,10 @@ fun TokensScreen(
                 .padding(padding)
         ) {
             when (val state = uiState) {
-                is TokensUiState.Loading -> LoadingContent(state.stage)
-                is TokensUiState.Error -> ErrorContent(state.message, onRetry = viewModel::refresh, onOpenPortal = openPortal)
+                is TokensUiState.Loading -> WithGreeting(greeting) { LoadingContent(state.stage) }
+                is TokensUiState.Error -> WithGreeting(greeting) {
+                    ErrorContent(state.message, onRetry = viewModel::refresh, onOpenPortal = openPortal)
+                }
                 is TokensUiState.Loaded -> PullToRefreshBox(
                     isRefreshing = state.isRefreshing,
                     onRefresh = viewModel::refresh,
@@ -144,6 +149,7 @@ fun TokensScreen(
                 ) {
                     LoadedContent(
                         state = state,
+                        greeting = greeting,
                         onToggle = viewModel::toggle,
                         onMeal = viewModel::setMeal,
                         onQuantity = viewModel::setQuantity,
@@ -167,6 +173,7 @@ fun TokensScreen(
 @Composable
 private fun LoadedContent(
     state: TokensUiState.Loaded,
+    greeting: String,
     onToggle: (TokenItem) -> Unit,
     onMeal: (TokenItem, String) -> Unit,
     onQuantity: (TokenItem, Int) -> Unit,
@@ -179,6 +186,8 @@ private fun LoadedContent(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item(key = "greeting") { GreetingLine(greeting) }
+
         if (state.qrAvailable) {
             item(key = "qr") { QrReadyCard(onClick = onOpenQr) }
         }
@@ -244,11 +253,29 @@ private fun QrReadyCard(onClick: () -> Unit) {
     }
 }
 
-/** "Good morning" etc. by the hostel's clock, for the Book tab's header. */
-private fun greeting(): String = when (DateUtils.localDateTime(Clock.System.now()).hour) {
-    in 4..11 -> "Good morning"
-    in 12..16 -> "Good afternoon"
-    else -> "Good evening"
+/** "Good evening, Soma 👋" — the first row of the content, so it scrolls away with it. */
+@Composable
+private fun GreetingLine(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.padding(start = 4.dp)
+    )
+}
+
+/**
+ * Loading and error states keep the greeting in the same spot as the loaded list's first row, so
+ * it doesn't jump when the tokens arrive.
+ */
+@Composable
+private fun WithGreeting(greeting: String, content: @Composable () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        GreetingLine(greeting, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
+        Box(modifier = Modifier.weight(1f)) { content() }
+    }
 }
 
 @Composable

@@ -53,6 +53,8 @@ class SetupViewModel(private val container: AppContainer) : ViewModel() {
                 is ApiResult.Success -> {
                     // A saved QR belongs to whoever was signed in before.
                     container.qr.clear()
+                    // So does the greeting's name, unless it's the same student signing in again.
+                    if (credentialStore.rollNo() != state.rollNo) container.greeting.clear()
                     credentialStore.save(state.rollNo, state.password)
                     appPreferences.reminderHour = state.reminderHour
                     appPreferences.reminderMinute = state.reminderMinute

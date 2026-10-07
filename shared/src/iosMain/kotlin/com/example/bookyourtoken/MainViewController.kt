@@ -3,6 +3,7 @@ package com.example.bookyourtoken
 import androidx.compose.ui.window.ComposeUIViewController
 import com.example.bookyourtoken.data.AppPreferences
 import com.example.bookyourtoken.data.CredentialStore
+import com.example.bookyourtoken.data.GreetingStore
 import com.example.bookyourtoken.data.IosPrivateFiles
 import com.example.bookyourtoken.data.QrStore
 import com.example.bookyourtoken.ui.App
@@ -15,10 +16,12 @@ import platform.UIKit.UIViewController
 @OptIn(ExperimentalSettingsImplementation::class)
 private val container: AppContainer by lazy {
     val credentials = CredentialStore(KeychainSettings(service = "com.example.bookyourtoken.credentials"))
-    val preferences = AppPreferences(NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults))
+    val defaults = NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults)
+    val preferences = AppPreferences(defaults)
     AppContainer(
         credentials = credentials,
         preferences = preferences,
+        greeting = GreetingStore(defaults),
         reminders = IosReminders(credentials, preferences),
         platform = IosPlatformActions(),
         qr = QrStore(IosPrivateFiles())
