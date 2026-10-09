@@ -18,15 +18,16 @@ import kotlinx.datetime.plus
 data class UpcomingDate(val date: LocalDate, val raw: String, val items: List<TokenItem>)
 
 /**
- * Every date after [today] that at least one item is offered on, in calendar order. Comes from the
- * one StudentView fetch — each item's date dropdown already lists all its dates. Strings that don't
- * parse as dd-MM-yyyy are skipped. Items keep the page's order within a date.
+ * Every date from [today] on that at least one item is offered on, in calendar order. Comes from the
+ * one StudentView fetch — each item's date dropdown already lists all its dates, and today is there
+ * only when the portal takes same-day bookings. Strings that don't parse as dd-MM-yyyy are skipped.
+ * Items keep the page's order within a date.
  */
 fun upcomingDates(items: List<TokenItem>, today: LocalDate): List<UpcomingDate> =
     items.flatMap { item -> item.dates.distinct().map { raw -> raw to item } }
         .groupBy({ it.first }, { it.second })
         .mapNotNull { (raw, offered) -> DateUtils.parsePortalDate(raw)?.let { UpcomingDate(it, raw, offered) } }
-        .filter { it.date > today }
+        .filter { it.date >= today }
         // dd-MM-yyyy strings don't sort ("04-10-2026" < "29-09-2026"): always by the parsed date.
         .sortedBy { it.date }
 
@@ -37,19 +38,40 @@ fun upcomingDates(items: List<TokenItem>, today: LocalDate): List<UpcomingDate> 
 fun bookingCutoff(date: LocalDate): LocalDateTime =
     LocalDateTime(date.minus(1, DateTimeUnit.DAY), LocalTime(17, 30))
 
-fun isLikelyClosed(date: LocalDate, now: LocalDateTime): Boolean = now > bookingCutoff(date)
+/** Never for today: if the portal still offers today, the day-before rule clearly doesn't apply. */
+fun isLikelyClosed(date: LocalDate, now: LocalDateTime): Boolean = date != now.date && now > bookingCutoff(date)
 
-/** "Book by 5:30 PM on Sat 03 Oct" (or "… today"). */
+/** Same-day deadlines from the portal's notice; none is stated for breakfast. */
+fun sameDayDeadline(meal: String): LocalTime? = when (meal) {
+    "Lunch" -> LocalTime(9, 0)
+    "Dinner" -> LocalTime(14, 0)
+    else -> null
+}
+
+/** Only a hint on today's meal choices: booking stays allowed and the server decides. */
+fun isMealLikelyClosed(date: LocalDate, meal: String, now: LocalDateTime): Boolean {
+    val deadline = sameDayDeadline(meal) ?: return false
+    return date == now.date && now.time > deadline
+}
+
+const val SAME_DAY_HINT = "Same day: Lunch by 9 AM, Dinner by 2 PM"
+
+/** "Book by 5:30 PM on Sat 03 Oct" (or "… today"); for today itself, the same-day deadlines. */
 fun cutoffHint(date: LocalDate, today: LocalDate): String {
+    if (date == today) return SAME_DAY_HINT
     val day = bookingCutoff(date).date
     return "Book by 5:30 PM " + if (day == today) "today" else "on ${DateUtils.shortLabel(day)}"
 }
 
-/** "Tomorrow · Sat 03 Oct" or "Sun 04 Oct": dialog headings. Falls back to the raw string. */
+/** "Today · Fri 02 Oct", "Tomorrow · Sat 03 Oct" or "Sun 04 Oct": dialog headings. Falls back to the raw string. */
 fun dateHeading(raw: String, today: LocalDate): String {
     val date = DateUtils.parsePortalDate(raw) ?: return raw
     val label = DateUtils.shortLabel(date)
-    return if (date == today.plus(1, DateTimeUnit.DAY)) "Tomorrow · $label" else label
+    return when (date) {
+        today -> "Today · $label"
+        today.plus(1, DateTimeUnit.DAY) -> "Tomorrow · $label"
+        else -> label
+    }
 }
 
 /** Picks per date (keyed by the raw date string), each the same [Selections] Tomorrow uses. */
@@ -81,6 +103,26 @@ fun DateSelections.prunedTo(dates: List<UpcomingDate>): Pair<DateSelections, Int
         stillValid.takeIf { it.isNotEmpty() }?.let { raw to it }
     }.toMap()
     return kept to dropped
+}
+
+/** Picks on dates now in the past: the app was left open over midnight. */
+fun DateSelections.passed(today: LocalDate): DateSelections =
+    filterKeys { raw -> DateUtils.parsePortalDate(raw)?.let { it < today } == true }
+
+/** The snackbar after a refresh that dropped picks, or null if none were. */
+fun refreshNotice(passed: DateSelections, dropped: Int): String? {
+    val parts = buildList {
+        val days = passed.keys.mapNotNull { DateUtils.parsePortalDate(it) }.sorted()
+        if (days.isNotEmpty()) {
+            val label = days.joinToString(" and ") { DateUtils.shortLabel(it) }
+            add("Removed selections for $label; " + if (days.size == 1) "that day has passed." else "those days have passed.")
+        }
+        when {
+            dropped == 1 -> add("1 selection was removed — that item or date is no longer offered.")
+            dropped > 1 -> add("$dropped selections were removed — those items or dates are no longer offered.")
+        }
+    }
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" ")
 }
 
 /** One request per pick: dates in calendar order, items in the page's order within a date. */

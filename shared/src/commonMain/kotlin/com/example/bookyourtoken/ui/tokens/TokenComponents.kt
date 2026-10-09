@@ -51,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -188,7 +189,9 @@ internal fun TokenItemRow(
     booked: List<BookedToken>,
     onToggle: () -> Unit,
     onMeal: (String) -> Unit,
-    onQuantity: (Int) -> Unit
+    onQuantity: (Int) -> Unit,
+    /** Meals shown dimmed as "Likely closed" — a hint only, they can still be picked and booked. */
+    likelyClosedMeals: Set<String> = emptySet()
 ) {
     val selected = selection != null
     val scheme = MaterialTheme.colorScheme
@@ -261,12 +264,24 @@ internal fun TokenItemRow(
                 Spacer(Modifier.height(8.dp))
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     item.meals.forEachIndexed { index, meal ->
+                        val mealSelected = selection.meal == meal
+                        val closed = meal in likelyClosedMeals
                         SegmentedButton(
-                            selected = selection.meal == meal,
+                            selected = mealSelected,
                             onClick = { onMeal(meal) },
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = item.meals.size)
                         ) {
-                            Text(meal)
+                            if (closed) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.alpha(if (mealSelected) 1f else 0.55f)
+                                ) {
+                                    Text(meal)
+                                    Text("Likely closed", style = MaterialTheme.typography.labelSmall, color = scheme.error)
+                                }
+                            } else {
+                                Text(meal)
+                            }
                         }
                     }
                 }

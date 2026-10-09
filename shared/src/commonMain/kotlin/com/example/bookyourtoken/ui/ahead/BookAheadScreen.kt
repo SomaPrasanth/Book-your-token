@@ -304,7 +304,10 @@ private fun DateChip(
     onClick: () -> Unit
 ) {
     val scheme = MaterialTheme.colorScheme
+    val isToday = day.date == today
     val isTomorrow = day.date == today.plus(1, DateTimeUnit.DAY)
+    // "Today" or "Tomorrow" on top, with the weekday moved down beside the month.
+    val relative = if (isToday) "Today" else if (isTomorrow) "Tomorrow" else null
     val closed = isLikelyClosed(day.date, now)
     val content = if (selected) scheme.onPrimary else scheme.onSurface
     val shape = RoundedCornerShape(20.dp)
@@ -314,7 +317,7 @@ private fun DateChip(
     LaunchedEffect(selected) { if (selected) requester.bringIntoView() }
 
     val description = buildString {
-        if (isTomorrow) append("Tomorrow, ")
+        relative?.let { append(it).append(", ") }
         append(DateUtils.spokenLabel(day.date))
         append(", ").append(itemsLabel(day.items.size))
         if (hasBooking) append(", you have bookings")
@@ -349,7 +352,7 @@ private fun DateChip(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    if (isTomorrow) "Tomorrow" else DateUtils.weekdayShort(day.date),
+                    relative ?: DateUtils.weekdayShort(day.date),
                     style = MaterialTheme.typography.labelMedium
                 )
                 Text(
@@ -357,7 +360,7 @@ private fun DateChip(
                     style = MaterialTheme.typography.headlineSmall
                 )
                 Text(
-                    (if (isTomorrow) DateUtils.weekdayShort(day.date) + " · " else "") + DateUtils.monthShort(day.date),
+                    (if (relative != null) DateUtils.weekdayShort(day.date) + " · " else "") + DateUtils.monthShort(day.date),
                     style = MaterialTheme.typography.labelMedium
                 )
                 Spacer(Modifier.height(2.dp))
@@ -428,8 +431,11 @@ private fun DateContent(
         }
         item(key = "header-${day.raw}") {
             Text(
-                (if (day.date == today.plus(1, DateTimeUnit.DAY)) "Available tomorrow, $label" else "Available on $label") +
-                    " · ${day.items.size}",
+                when (day.date) {
+                    today -> "Available today, $label"
+                    today.plus(1, DateTimeUnit.DAY) -> "Available tomorrow, $label"
+                    else -> "Available on $label"
+                } + " · ${day.items.size}",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -445,7 +451,8 @@ private fun DateContent(
                 booked = state.bookedFor(item, day.raw),
                 onToggle = { onToggle(item) },
                 onMeal = { onMeal(item, it) },
-                onQuantity = { onQuantity(item, it) }
+                onQuantity = { onQuantity(item, it) },
+                likelyClosedMeals = item.meals.filter { isMealLikelyClosed(day.date, it, now) }.toSet()
             )
         }
     }
@@ -547,7 +554,10 @@ private fun ConfirmAheadDialog(
     val lines = bookingLines(state.dates, state.selections)
     val groups = lines.groupBy { it.date }
     val total = estimatedTotal(lines.map { it.item to Selection(it.meal, it.quantity) })
-    val anyClosed = state.dates.any { it.raw in groups && isLikelyClosed(it.date, now) }
+    val anyClosed = state.dates.any { day ->
+        val dayLines = groups[day.raw] ?: return@any false
+        isLikelyClosed(day.date, now) || dayLines.any { isMealLikelyClosed(day.date, it.meal, now) }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(AppIcons.CalendarMonth, contentDescription = null) },
