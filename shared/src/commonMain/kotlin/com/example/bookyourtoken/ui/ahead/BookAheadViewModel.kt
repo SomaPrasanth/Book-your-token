@@ -114,17 +114,14 @@ class BookAheadViewModel(private val container: AppContainer) : ViewModel() {
                 showStage("Checking your bookings…")
                 val booked = (client.fetchBookedTokens(rollNo) as? ApiResult.Success)?.data.orEmpty()
 
+                // Fresh each refresh, so a screen left open past midnight moves on to the new day.
                 val today = DateUtils.today()
                 val dates = upcomingDates(items, today)
                 // Latest picks, not the ones from when the refresh started: the user may have kept tapping.
-                val (kept, dropped) = (loaded?.selections ?: emptyMap()).prunedTo(dates)
-                if (dropped > 0) {
-                    _notice.value = if (dropped == 1) {
-                        "1 selection was removed — that item or date is no longer offered."
-                    } else {
-                        "$dropped selections were removed — those items or dates are no longer offered."
-                    }
-                }
+                val picks = loaded?.selections ?: emptyMap()
+                val passed = picks.passed(today)
+                val (kept, dropped) = (picks - passed.keys).prunedTo(dates)
+                refreshNotice(passed, dropped)?.let { _notice.value = it }
                 val keepDate = loaded?.selectedDate?.takeIf { raw -> dates.any { it.raw == raw } }
 
                 _uiState.value = BookAheadUiState.Loaded(

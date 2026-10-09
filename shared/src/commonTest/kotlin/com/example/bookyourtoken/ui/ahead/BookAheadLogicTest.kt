@@ -32,21 +32,27 @@ class BookAheadLogicTest {
     @Test
     fun `dates are in calendar order, not string order`() {
         val dates = upcomingDates(listOf(gobi, egg), today)
-        assertEquals(listOf("03-10-2026", "04-10-2026", "06-10-2026", "11-10-2026"), dates.map { it.raw })
+        assertEquals(listOf("02-10-2026", "03-10-2026", "04-10-2026", "06-10-2026", "11-10-2026"), dates.map { it.raw })
     }
 
     @Test
-    fun `only dates after today, tomorrow included`() {
+    fun `today and later, past dropped`() {
         val raws = upcomingDates(listOf(gobi, egg), today).map { it.raw }
+        assertEquals("02-10-2026", raws.first()) // today, offered by egg, goes first
         assertTrue("03-10-2026" in raws)
-        assertFalse("02-10-2026" in raws) // today
         assertFalse("29-09-2026" in raws) // past
+    }
+
+    @Test
+    fun `today only when the portal offers it`() {
+        val raws = upcomingDates(listOf(gobi), today).map { it.raw }
+        assertFalse("02-10-2026" in raws)
     }
 
     @Test
     fun `unparseable strings are skipped without crashing`() {
         val raws = upcomingDates(listOf(egg), today).map { it.raw }
-        assertEquals(listOf("04-10-2026"), raws)
+        assertEquals(listOf("02-10-2026", "04-10-2026"), raws)
     }
 
     @Test
@@ -60,7 +66,7 @@ class BookAheadLogicTest {
 
     @Test
     fun `no dates when nothing is upcoming`() {
-        assertTrue(upcomingDates(listOf(gobi.copy(dates = listOf("01-10-2026", "02-10-2026"))), today).isEmpty())
+        assertTrue(upcomingDates(listOf(gobi.copy(dates = listOf("30-09-2026", "01-10-2026"))), today).isEmpty())
         assertTrue(upcomingDates(emptyList(), today).isEmpty())
     }
 
@@ -81,9 +87,30 @@ class BookAheadLogicTest {
     }
 
     @Test
+    fun `the day-before cutoff never marks today`() {
+        assertFalse(isLikelyClosed(today, LocalDateTime(2026, 10, 2, 23, 59)))
+        // Left open past midnight: yesterday's chip does read as closed.
+        assertTrue(isLikelyClosed(today, LocalDateTime(2026, 10, 3, 0, 1)))
+    }
+
+    @Test
+    fun `same-day meal deadlines are hints for today only`() {
+        val morning = LocalDateTime(2026, 10, 2, 9, 0)
+        val afternoon = LocalDateTime(2026, 10, 2, 14, 1)
+        assertFalse(isMealLikelyClosed(today, "Lunch", morning))
+        assertTrue(isMealLikelyClosed(today, "Lunch", LocalDateTime(2026, 10, 2, 9, 1)))
+        assertFalse(isMealLikelyClosed(today, "Dinner", LocalDateTime(2026, 10, 2, 14, 0)))
+        assertTrue(isMealLikelyClosed(today, "Dinner", afternoon))
+        assertFalse(isMealLikelyClosed(today, "Breakfast", afternoon)) // no deadline stated
+        assertFalse(isMealLikelyClosed(LocalDate(2026, 10, 3), "Lunch", afternoon)) // not today
+    }
+
+    @Test
     fun `cutoff hint and headings`() {
+        assertEquals("Same day: Lunch by 9 AM, Dinner by 2 PM", cutoffHint(today, today))
         assertEquals("Book by 5:30 PM today", cutoffHint(LocalDate(2026, 10, 3), today))
         assertEquals("Book by 5:30 PM on Sat 03 Oct", cutoffHint(LocalDate(2026, 10, 4), today))
+        assertEquals("Today · Fri 02 Oct", dateHeading("02-10-2026", today))
         assertEquals("Tomorrow · Sat 03 Oct", dateHeading("03-10-2026", today))
         assertEquals("Sun 04 Oct", dateHeading("04-10-2026", today))
         assertEquals("garbage", dateHeading("garbage", today))
@@ -131,6 +158,22 @@ class BookAheadLogicTest {
         val (kept, dropped) = s.prunedTo(dates)
         assertEquals(mapOf("04-10-2026" to mapOf(8 to Selection("Lunch", 1))), kept)
         assertEquals(3, dropped)
+    }
+
+    @Test
+    fun `picks on a day that has passed are removed with their own notice`() {
+        val s: DateSelections = mapOf(
+            "01-10-2026" to mapOf(8 to Selection("Lunch", 1), 94 to Selection("Dinner", 1)),
+            "04-10-2026" to mapOf(8 to Selection("Lunch", 1))
+        )
+        val passed = s.passed(today)
+        assertEquals(setOf("01-10-2026"), passed.keys)
+        assertEquals("Removed selections for Thu 01 Oct; that day has passed.", refreshNotice(passed, 0))
+        assertEquals(
+            "Removed selections for Thu 01 Oct; that day has passed. 1 selection was removed — that item or date is no longer offered.",
+            refreshNotice(passed, 1)
+        )
+        assertEquals(null, refreshNotice(emptyMap(), 0))
     }
 
     @Test
